@@ -211,24 +211,112 @@ impl BvhTree{
     }
 
     pub fn print_nodes(&self, index: usize, indent: usize){
-        let mut ident_string = String::new();
+        let mut indent_string = String::new();
         for i in 0..indent{
-            ident_string.push(' ');
+            indent_string.push(' ');
         }
         match self.nodes[index]{
             BvhNode::Node{left, right, aabb} => {
-                println!("{}[index: {}, aabb: ({:?}, {:?}), left: {}, right: {}]", ident_string, index, aabb.min, aabb.max, left, right);
+                println!("{}[index: {}, aabb: ({:?}, {:?}), left: {}, right: {}]", indent_string, index, aabb.min, aabb.max, left, right);
                 self.print_nodes(left, indent + 1);
                 self.print_nodes(right, indent + 1);
             },
             BvhNode::Leaf{aabb, index: tri} => {
-                println!("{}[index: {}, aabb: ({:?}, {:?}), tri: {}]", ident_string, index, aabb.min, aabb.max, tri);
+                println!("{}[index: {}, aabb: ({:?}, {:?}), tri: {}]", indent_string, index, aabb.min, aabb.max, tri);
             }
         }
     }
     pub fn print(&self){
         self.print_nodes(self.root, 0);
         println!("");
+    }
+
+    pub fn print_pivot(&self, index: usize, pivot: usize, indent: usize){
+        let mut indent_string = String::new();
+        for i in 0..indent{
+            indent_string.push(' ');
+        }
+
+        match self.nodes[index]{
+            BvhNode::Node{left, right, aabb} => {
+                println!("{}[index: {}, pivot: {}]", indent_string, index, pivot);
+                self.print_pivot(left, index, indent+1);
+                self.print_pivot(right, pivot, indent+1);
+            },
+            BvhNode::Leaf{aabb, index: tri} => {
+                println!("{}[index: {}, pivot: {}, tri: {}]", indent_string, index, pivot, tri);
+            }
+        }
+    }
+
+    pub fn generate_flat_pivot(&self) -> FlatBvhTree{
+        let mut dst = Vec::<FlatBvhNode>::with_capacity(self.nodes.len());
+        self.add_flat(&mut dst, self.root, 0);
+        FlatBvhTree{nodes: dst}
+    }
+
+    pub fn add_flat(&self, dst: &mut Vec<FlatBvhNode>, index: usize, dst_pivot: u32) -> usize{
+        let aabb = self.nodes[index].aabb();
+        let min = [aabb.min[0], aabb.min[1], aabb.min[2], 0.];
+        let max = [aabb.max[0], aabb.max[1], aabb.max[2], 0.];
+        match self.nodes[index]{
+            BvhNode::Node{left, right, ..} => {
+                let dst_index = dst.len();
+                dst.push(FlatBvhNode{
+                    ty: FlatBvhNode::TY_NODE,
+                    pivot: dst_pivot,
+                    right: 0,
+                    min,
+                    max,
+                });
+                self.add_flat(dst, left, dst_index as u32);
+                dst[dst_index as usize].right = self.add_flat(dst, right, dst_pivot) as u32;
+                dst_index
+            },
+            BvhNode::Leaf{index: ext_idx, ..} => {
+                let dst_index = dst.len();
+                dst.push(FlatBvhNode{
+                    ty: FlatBvhNode::TY_LEAF,
+                    pivot: dst_pivot,
+                    right: ext_idx as u32,
+                    min, max,
+                });
+                dst_index
+            }
+        }
+    }
+
+    pub fn generate_iterative(&self) -> FlatBvhTree{
+        let mut dst = Vec::<FlatBvhNode>::with_capacity(self.nodes.len());
+        self.add_flat(&mut dst, self.root, 0);
+        let mut dst = FlatBvhTree{nodes: dst};
+        dst.pivot_to_direct();
+        dst
+    }
+}
+
+#[repr(C)]
+pub struct FlatBvhNode{
+    pub ty: u32,
+    pub right: u32,
+    pub pivot: u32,
+    pub max: [f32; 4],
+    pub min: [f32; 4],
+}
+impl FlatBvhNode{
+    pub const TY_NODE: u32 = 0x00;
+    pub const TY_LEAF: u32 = 0x01;
+}
+
+pub struct FlatBvhTree{
+    nodes: Vec<FlatBvhNode>,
+}
+
+impl FlatBvhTree{
+    fn pivot_to_direct(&mut self){
+        for i in 0..self.nodes.len(){
+            self.nodes[i].pivot = self.nodes[self.nodes[i].pivot as usize].right;
+        }
     }
 }
 
@@ -257,4 +345,5 @@ fn main() {
 
         let bvh = BvhTree::build_sweep(&mesh);
         bvh.print();
+        bvh.print_pivot(bvh.root, bvh.root, 0);
 }
