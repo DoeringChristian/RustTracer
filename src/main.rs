@@ -255,6 +255,14 @@ impl BvhTree{
         FlatBvhTree{nodes: dst}
     }
 
+    ///
+    /// The pivot of a node is the parent of the first parent node of it, that is a left node of
+    /// its parent. The pivot can than be used in combination with the right "pointer" to generate
+    /// the miss index.
+    /// TODO: Test if preorder would be better.
+    /// TODO: The right most nodes have a miss pointing to the right child of root. This has to be
+    /// fixed.
+    ///
     pub fn add_flat(&self, dst: &mut Vec<FlatBvhNode>, index: usize, dst_pivot: u32) -> usize{
         let aabb = self.nodes[index].aabb();
         let min = [aabb.min[0], aabb.min[1], aabb.min[2], 0.];
@@ -264,7 +272,7 @@ impl BvhTree{
                 let dst_index = dst.len();
                 dst.push(FlatBvhNode{
                     ty: FlatBvhNode::TY_NODE,
-                    pivot: dst_pivot,
+                    miss: dst_pivot,
                     right: 0,
                     min,
                     max,
@@ -277,7 +285,7 @@ impl BvhTree{
                 let dst_index = dst.len();
                 dst.push(FlatBvhNode{
                     ty: FlatBvhNode::TY_LEAF,
-                    pivot: dst_pivot,
+                    miss: dst_pivot,
                     right: ext_idx as u32,
                     min, max,
                 });
@@ -296,10 +304,11 @@ impl BvhTree{
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct FlatBvhNode{
     pub ty: u32,
     pub right: u32,
-    pub pivot: u32,
+    pub miss: u32,
     pub max: [f32; 4],
     pub min: [f32; 4],
 }
@@ -308,6 +317,7 @@ impl FlatBvhNode{
     pub const TY_LEAF: u32 = 0x01;
 }
 
+#[derive(Debug)]
 pub struct FlatBvhTree{
     nodes: Vec<FlatBvhNode>,
 }
@@ -315,7 +325,7 @@ pub struct FlatBvhTree{
 impl FlatBvhTree{
     fn pivot_to_direct(&mut self){
         for i in 0..self.nodes.len(){
-            self.nodes[i].pivot = self.nodes[self.nodes[i].pivot as usize].right;
+            self.nodes[i].miss = self.nodes[self.nodes[i].miss as usize].right;
         }
     }
 }
@@ -346,4 +356,8 @@ fn main() {
         let bvh = BvhTree::build_sweep(&mesh);
         bvh.print();
         bvh.print_pivot(bvh.root, bvh.root, 0);
+        let iterative = bvh.generate_iterative();
+        for node in iterative.nodes{
+            println!("{:?}", node);
+        }
 }
