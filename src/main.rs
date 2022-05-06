@@ -91,8 +91,8 @@ impl From<[Vert; 3]> for AABB{
         let v2 = src[1].pos3();
         let v3 = src[2].pos3();
         AABB{
-            min: [v1[0].min(v2[0]).min(v3[0]), v1[1].min(v2[1]).min(v3[1]), v1[3].min(v2[3]).min(v3[3])],
-            max: [v1[0].max(v2[0]).max(v3[0]), v1[1].max(v2[1]).max(v3[1]), v1[3].max(v2[3]).max(v3[3])],
+            min: [v1[0].min(v2[0]).min(v3[0]), v1[1].min(v2[1]).min(v3[1]), v1[2].min(v2[2]).min(v3[2])],
+            max: [v1[0].max(v2[0]).max(v3[0]), v1[1].max(v2[1]).max(v3[1]), v1[2].max(v2[2]).max(v3[2])],
         }
     }
 }
@@ -120,7 +120,6 @@ impl BvhNode{
 }
 
 // TODO: x, y, z_ord bool vec.
-#[derive(Debug)]
 pub struct BvhTree{
     n_leafs: usize,
     nodes: Vec<BvhNode>,
@@ -172,31 +171,36 @@ impl BvhTree{
                 left: children[0],
                 right: children[1],
             });
+            println!("Parent: {:?}", p_aabb);
+            println!("");
             nodes.len()-1
         }
         else{
-            let mut min_sa = std::f32::MAX;
-            let mut min_sa_idx = 0;
-            let mut r_aabb = AABB::default();
-            let mut l_aabb = AABB::default();
+            let mut min_sah = std::f32::MAX;
+            let mut min_sah_idx = 0;
+            let mut min_sah_l_aabb = nodes[children[0]].aabb();
+            let mut min_sah_r_aabb = AABB::default();
+            let p_sa = p_aabb.surface_area();
             for i in 0..(children.len()-1){
-                // The right aabb can be grown with the iteration
-                r_aabb = r_aabb.grow(nodes[children[i]].aabb());
-                let r_sa = r_aabb.surface_area();
+                // The left aabb can be grown with the iteration
+                let l_aabb = min_sah_l_aabb.grow(nodes[children[i]].aabb());
+                let l_sa = l_aabb.surface_area();
                 // The left aabb has to be generated for each iteration.
                 // This should always at leas iterate over the last leaf node.
-                l_aabb = ((i + 1)..children.len()).map(|i|{nodes[children[i]].aabb()}).reduce(AABB::grow).unwrap();
-                let l_sa = l_aabb.surface_area();
+                let r_aabb = ((i + 1)..children.len()).map(|i|{nodes[children[i]].aabb()}).fold(nodes[children[i+1]].aabb(), AABB::grow);
+                let r_sa = r_aabb.surface_area();
 
-                let sa = r_sa + l_sa;
-                if sa < min_sa{
-                    min_sa = sa;
-                    min_sa_idx = i;
+                let sah = (l_sa + r_sa) / p_sa;
+                if sah < min_sah{
+                    min_sah = sah;
+                    min_sah_idx = i;
+                    min_sah_l_aabb = l_aabb;
+                    min_sah_r_aabb = r_aabb;
                 }
             }
-            let (l_children, r_children) = children.split_at_mut(min_sa_idx+1);
-            let l_node_i = Self::sweep(nodes, n_leafs, l_aabb, l_children);
-            let r_node_i = Self::sweep(nodes, n_leafs, r_aabb, r_children);
+            let (l_children, r_children) = children.split_at_mut(min_sah_idx+1);
+            let r_node_i = Self::sweep(nodes, n_leafs, min_sah_r_aabb, r_children);
+            let l_node_i = Self::sweep(nodes, n_leafs, min_sah_l_aabb, l_children);
             nodes.push(BvhNode::Node{
                 aabb: p_aabb,
                 left: l_node_i,
@@ -204,6 +208,27 @@ impl BvhTree{
             });
             nodes.len()-1
         }
+    }
+
+    pub fn print_nodes(&self, index: usize, indent: usize){
+        let mut ident_string = String::new();
+        for i in 0..indent{
+            ident_string.push(' ');
+        }
+        match self.nodes[index]{
+            BvhNode::Node{left, right, aabb} => {
+                println!("{}[index: {}, aabb: ({:?}, {:?}), left: {}, right: {}]", ident_string, index, aabb.min, aabb.max, left, right);
+                self.print_nodes(left, indent + 1);
+                self.print_nodes(right, indent + 1);
+            },
+            BvhNode::Leaf{aabb, index: tri} => {
+                println!("{}[index: {}, aabb: ({:?}, {:?}), tri: {}]", ident_string, index, aabb.min, aabb.max, tri);
+            }
+        }
+    }
+    pub fn print(&self){
+        self.print_nodes(self.root, 0);
+        println!("");
     }
 }
 
@@ -215,17 +240,21 @@ fn main() {
         Vert{pos: [2., 0., 0., 0.]},
         Vert{pos: [3., 0., 0., 0.]},
         Vert{pos: [3., 1., 0., 0.]},
+        Vert{pos: [2., 1., 0., 0.]},
+        Vert{pos: [3., 1., 0., 0.]},
+        Vert{pos: [3., 2., 0., 0.]},
     ];
     let tris = vec![
         [0, 1, 2],
         [3, 4, 5],
+        [6, 7, 8],
     ];
 
-    let mesh = Mesh{
-        verts,
-        tris,
-    };
+        let mesh = Mesh{
+            verts,
+            tris,
+        };
 
-    let bvh = BvhTree::build_sweep(&mesh);
-    println!("{:?}", bvh);
+        let bvh = BvhTree::build_sweep(&mesh);
+        bvh.print();
 }
