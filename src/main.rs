@@ -325,7 +325,16 @@ pub struct FlatBvhTree{
 impl FlatBvhTree{
     fn pivot_to_direct(&mut self){
         for i in 0..self.nodes.len(){
-            self.nodes[i].miss = self.nodes[self.nodes[i].miss as usize].right;
+            if i as u32 >= self.nodes[0].right && self.nodes[i].miss == 0{
+                // The right most node's pivot would be the root node.
+                // To invalidate their misses and indicate a miss of the whole tree they are set to
+                // 0.
+                // The root node (0) cannot be a miss.
+                self.nodes[i].miss = 0;
+            }
+            else{
+                self.nodes[i].miss = self.nodes[self.nodes[i].miss as usize].right;
+            }
         }
     }
 }
