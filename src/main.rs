@@ -336,6 +336,7 @@ impl FlatBvhTree{
                 self.nodes[i].miss = self.nodes[self.nodes[i].miss as usize].right;
             }
         }
+        self.nodes[0].miss = 0;
     }
 }
 
