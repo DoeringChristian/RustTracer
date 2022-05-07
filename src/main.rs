@@ -141,7 +141,7 @@ fn main() {
         tris,
     };
 
-    let bvh = GlslBVH::build_sweep(
+    let bvh = GlslBVH::build_buckets_16(
         mesh.tris
             .iter()
             .enumerate()

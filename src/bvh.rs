@@ -135,6 +135,130 @@ impl<Node: BVHNode> BVH<Node> {
             node_i
         }
     }
+    pub fn build_buckets_16<Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
+        Self::build_buckets_num::<16, Item, I>(iter)
+    }
+    pub fn build_buckets_num<const N: usize, Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
+        let mut children: Vec<IndexedAABB> = iter.map(|x| x.into()).collect();
+        let aabb = children.iter().map(|c| c.aabb).fold(children[0].aabb, AABB::grow);
+        let mut nodes: Vec<Node> = Vec::new();
+        let mut buckets = vec![Vec::new(); N];
+        Self::buckets_pivot::<N>(&mut nodes, aabb, &mut children, &mut buckets, 0);
+        let mut tree = Self{nodes};
+        Self::pivot_to_miss(&mut tree);
+        tree
+    }
+    ///
+    /// Same as sweep_pivot but with Buckets to speed up construction.
+    ///
+    fn buckets_pivot<const N: usize>(
+        dst: &mut Vec<Node>,
+        p_aabb: AABB,
+        children: &mut [IndexedAABB],
+        buckets: &mut Vec<Vec<IndexedAABB>>,
+        pivot: usize,
+    ) -> usize {
+
+        if children.len() == 1 {
+            dst.push(Node::new_leaf(
+                    p_aabb,
+                    children[0].index,
+                    pivot
+            ));
+            dst.len() - 1
+        } else {
+            // clear all buckets.
+            for bucket in buckets.iter_mut(){
+                bucket.clear();
+            }
+            let centoid_aabb: AABB = children.iter().map(|c| c.aabb.centroid().into()).fold(AABB::empty(), AABB::grow);
+
+            let (axis, split_axis_size) = centoid_aabb.largest_axis_with_size();
+            let axis: usize = axis.into();
+
+            let mut bucket_aabbs = [AABB::empty(); N];
+
+            // Push the children into their respective buckets.
+            for child in children.iter(){
+                //println!("{}, {}", split_axis_size, (child.aabb.centroid()[axis] - centoid_aabb.min[axis])/split_axis_size);
+                // The bucket number to which to push the child.
+                let bn = (((child.aabb.centroid()[axis] - centoid_aabb.min[axis])/split_axis_size * (N as f32)).ceil()-1.) as usize;
+                // Insert child into bucket.
+                buckets[bn].push(*child);
+                // Grow the aabb corresponding to that bucket.
+                bucket_aabbs[bn] = bucket_aabbs[bn].grow(child.aabb);
+            }
+
+            // Accumulate the bounding boxes of the buffers for the left and right side. This gives
+            // linear speed.
+            let mut l_bucket_aabb_acc = [AABB::empty(); N];
+            let mut r_bucket_aabb_acc = [AABB::empty(); N];
+            let mut l_aabb = AABB::empty();
+            let mut r_aabb = AABB::empty();
+            for i in 0..(N-1){
+                l_aabb = l_aabb.grow(bucket_aabbs[i]);
+                r_aabb = r_aabb.grow(bucket_aabbs[N-i-1]);
+                l_bucket_aabb_acc[i] = l_aabb;
+                r_bucket_aabb_acc[i] = r_aabb;
+            }
+
+            let mut min_sah = std::f32::INFINITY;
+            let mut bucket_split = 0;
+            let mut count_non_empty = 0;
+            let p_sa = p_aabb.surface_area();
+            for i in 0..(N-1){
+                if !(buckets[i].is_empty()){
+                    let l_sa = l_bucket_aabb_acc[i].surface_area();
+                    let r_sa = r_bucket_aabb_acc[i].surface_area();
+                    let sah = (l_sa + r_sa) / p_sa;
+                    if sah < min_sah {
+                        min_sah = sah;
+                        bucket_split = i;
+                    }
+                    count_non_empty += 1;
+                }
+            }
+
+            let min_sah_l_aabb = l_bucket_aabb_acc[bucket_split];
+            let min_sah_r_aabb = r_bucket_aabb_acc[bucket_split];
+
+            // Fill children back from bucket into children slice.
+            let mut child_index = 0;
+            let mut children_split = 0;
+            for i in 0..N{
+                for child in buckets[i].iter(){
+                    children[child_index] = *child;
+                    child_index += 1;
+                }
+                // When we have filled the children of the left buckets we keep the child_index;
+                if i == bucket_split{
+                    children_split = child_index;
+                }
+            }
+
+            // If there should only be one bucket occupied (can only happen if there are only two
+            // children) we just split them in 2.
+            if count_non_empty == 1{
+                children_split = children.len()/2;
+            }
+
+
+            // Split the children at the children_split index.
+            let (l_children, r_children) = children.split_at_mut(children_split);
+            let node_i = dst.len();
+            dst.push(Node::new_node(
+                    p_aabb,
+                    0,
+                    pivot,
+            ));
+            let l_node_i = Self::buckets_pivot::<N>(dst, min_sah_l_aabb, l_children, buckets, node_i);
+            let r_node_i = Self::buckets_pivot::<N>(dst, min_sah_r_aabb, r_children, buckets, pivot);
+            dst[node_i].set_right(r_node_i);
+            //dst[node_i].right = r_node_i as u32;
+            //dst[node_i].miss = pivot as u32;
+            node_i
+        }
+    }
     ///
     /// Change the pivot stored in the miss "pointer" to the miss pointer by setting it to the
     /// right node of the pivot.

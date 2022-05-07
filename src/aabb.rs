@@ -5,6 +5,17 @@ pub enum Axis {
     Z,
 }
 
+impl From<Axis> for usize{
+    #[inline]
+    fn from(src: Axis) -> Self {
+        match src{
+            Axis::X => 0,
+            Axis::Y => 1,
+            Axis::Z => 2,
+        }
+    }
+}
+
 impl From<(usize, AABB)> for IndexedAABB{
     fn from(src: (usize, AABB)) -> Self {
         IndexedAABB{
@@ -76,3 +87,14 @@ impl AABB {
             + 2. * (self.max[0] - self.min[0]) * (self.max[2] - self.min[2])
     }
 }
+
+impl From<[f32; 3]> for AABB{
+    #[inline]
+    fn from(src: [f32; 3]) -> Self {
+        AABB{
+            min: src,
+            max: src,
+        }
+    }
+}
+
