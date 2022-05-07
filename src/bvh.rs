@@ -72,7 +72,7 @@ impl AABB {
     }
 }
 
-pub trait BvhNode{
+pub trait BVHNode{
     fn new_node(aabb: AABB, right: usize, miss: usize) -> Self;
     fn new_leaf(aabb: AABB, index: usize, miss: usize) -> Self;
     fn set_right(&mut self, right: usize);
@@ -85,21 +85,21 @@ pub trait BvhNode{
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct FlatBvhNode {
+pub struct GlslBVHNode {
     pub min: [f32; 4],
     pub max: [f32; 4],
     pub ty: u32,
     pub right: u32,
     pub miss: u32,
 }
-impl FlatBvhNode {
+impl GlslBVHNode {
     pub const TY_NODE: u32 = 0x00;
     pub const TY_LEAF: u32 = 0x01;
 }
-impl BvhNode for FlatBvhNode{
+impl BVHNode for GlslBVHNode{
     #[inline]
     fn new_node(aabb: AABB, right: usize, miss: usize) -> Self {
-        FlatBvhNode{
+        GlslBVHNode{
             ty: Self::TY_NODE,
             min: [aabb.min[0], aabb.min[1], aabb.min[2], 0.],
             max: [aabb.max[0], aabb.max[1], aabb.max[2], 0.],
@@ -110,7 +110,7 @@ impl BvhNode for FlatBvhNode{
 
     #[inline]
     fn new_leaf(aabb: AABB, index: usize, miss: usize) -> Self {
-        FlatBvhNode{
+        GlslBVHNode{
             ty: Self::TY_LEAF,
             min: [aabb.min[0], aabb.min[1], aabb.min[2], 0.],
             max: [aabb.max[0], aabb.max[1], aabb.max[2], 0.],
@@ -150,12 +150,14 @@ impl BvhNode for FlatBvhNode{
     }
 }
 
+pub type GlslBVH = BVH<GlslBVHNode>;
+
 #[derive(Debug)]
-pub struct BVH<Node: BvhNode>{
+pub struct BVH<Node: BVHNode>{
     pub nodes: Vec<Node>,
 }
 
-impl<Node: BvhNode> BVH<Node> {
+impl<Node: BVHNode> BVH<Node> {
     pub fn build_sweep<Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
         let mut children: Vec<IndexedAABB> = iter.map(|x| x.into()).collect();
         let n_leafs = children.len();
@@ -293,7 +295,7 @@ impl<Node: BvhNode> BVH<Node> {
         self.nodes[0].set_miss(0);
     }
 }
-impl<Node: BvhNode + std::fmt::Debug> BVH<Node>{
+impl<Node: BVHNode + std::fmt::Debug> BVH<Node>{
     pub fn print_rec(&self, index: usize, indent_string: &mut String) {
         println!("{}index: {}, {:?}", indent_string, index, self.nodes[index]);
         if self.nodes[index].is_node(){

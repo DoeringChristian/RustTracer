@@ -84,6 +84,6 @@ fn main() {
             tris,
         };
 
-        let bvh = BVH::<FlatBvhNode>::build_sweep(mesh.tris.iter().enumerate().map(|(i, tri)| (i, mesh.get_for_tri(tri).into())));
+        let bvh = GlslBVH::build_sweep(mesh.tris.iter().enumerate().map(|(i, tri)| (i, mesh.get_for_tri(tri).into())));
         bvh.print_rec(0, &mut String::from(""));
 }
