@@ -77,6 +77,10 @@ pub trait BvhNode{
     fn new_leaf(aabb: AABB, index: usize, miss: usize) -> Self;
     fn set_right(&mut self, right: usize);
     fn set_miss(&mut self, miss: usize);
+    fn right(&self) -> usize;
+    fn miss(&self) -> usize;
+    fn is_leaf(&self) -> bool;
+    fn is_node(&self) -> bool;
 }
 
 #[repr(C)]
@@ -93,6 +97,7 @@ impl FlatBvhNode {
     pub const TY_LEAF: u32 = 0x01;
 }
 impl BvhNode for FlatBvhNode{
+    #[inline]
     fn new_node(aabb: AABB, right: usize, miss: usize) -> Self {
         FlatBvhNode{
             ty: Self::TY_NODE,
@@ -103,6 +108,7 @@ impl BvhNode for FlatBvhNode{
         }
     }
 
+    #[inline]
     fn new_leaf(aabb: AABB, index: usize, miss: usize) -> Self {
         FlatBvhNode{
             ty: Self::TY_LEAF,
@@ -113,26 +119,48 @@ impl BvhNode for FlatBvhNode{
         }
     }
 
+    #[inline]
     fn set_right(&mut self, right: usize) {
         self.right = right as u32;
     }
 
+    #[inline]
     fn set_miss(&mut self, miss: usize) {
         self.miss = miss as u32;
+    }
+
+    #[inline]
+    fn miss(&self) -> usize {
+        self.miss as usize
+    }
+
+    #[inline]
+    fn right(&self) -> usize {
+        self.right as usize
+    }
+
+    #[inline]
+    fn is_leaf(&self) -> bool {
+        self.ty == Self::TY_LEAF
+    }
+
+    #[inline]
+    fn is_node(&self) -> bool {
+        self.ty == Self::TY_NODE
     }
 }
 
 #[derive(Debug)]
-pub struct BVH {
-    pub nodes: Vec<FlatBvhNode>,
+pub struct BVH<Node: BvhNode>{
+    pub nodes: Vec<Node>,
 }
 
-impl BVH {
+impl<Node: BvhNode> BVH<Node> {
     pub fn build_sweep<Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
         let mut children: Vec<IndexedAABB> = iter.map(|x| x.into()).collect();
         let n_leafs = children.len();
         let aabb = children.iter().map(|c| c.aabb).fold(children[0].aabb, AABB::grow);
-        let mut nodes: Vec<FlatBvhNode> = Vec::new();
+        let mut nodes: Vec<Node> = Vec::new();
         Self::sweep_pivot(&mut nodes, aabb, &mut children, 0);
         let mut tree = Self{nodes};
         Self::pivot_to_miss(&mut tree);
@@ -171,7 +199,7 @@ impl BVH {
     /// The miss pointer of any node is then just the right pointer of its pivot.
     ///
     fn sweep_pivot(
-        dst: &mut Vec<FlatBvhNode>,
+        dst: &mut Vec<Node>,
         p_aabb: AABB,
         children: &mut [IndexedAABB],
         pivot: usize,
@@ -194,13 +222,11 @@ impl BVH {
         }
 
         if children.len() == 1 {
-            dst.push(FlatBvhNode {
-                ty: FlatBvhNode::TY_LEAF,
-                right: children[0].index as u32,
-                miss: pivot as u32,
-                min: [p_aabb.min[0], p_aabb.min[1], p_aabb.min[2], 0.],
-                max: [p_aabb.max[0], p_aabb.max[1], p_aabb.max[2], 0.],
-            });
+            dst.push(Node::new_leaf(
+                    p_aabb,
+                    children[0].index,
+                    pivot
+            ));
             dst.len() - 1
         } else {
             let mut min_sah = std::f32::MAX;
@@ -231,17 +257,16 @@ impl BVH {
             }
             let (l_children, r_children) = children.split_at_mut(min_sah_idx + 1);
             let node_i = dst.len();
-            dst.push(FlatBvhNode {
-                ty: FlatBvhNode::TY_NODE,
-                right: 0,
-                miss: pivot as u32,
-                min: [p_aabb.min[0], p_aabb.min[1], p_aabb.min[2], 0.],
-                max: [p_aabb.max[0], p_aabb.max[1], p_aabb.max[2], 0.],
-            });
+            dst.push(Node::new_node(
+                    p_aabb,
+                    0,
+                    pivot,
+            ));
             let l_node_i = Self::sweep_pivot(dst, min_sah_l_aabb, l_children, node_i);
             let r_node_i = Self::sweep_pivot(dst, min_sah_r_aabb, r_children, pivot);
-            dst[node_i].right = r_node_i as u32;
-            dst[node_i].miss = pivot as u32;
+            dst[node_i].set_right(r_node_i);
+            //dst[node_i].right = r_node_i as u32;
+            //dst[node_i].miss = pivot as u32;
             node_i
         }
     }
@@ -252,27 +277,31 @@ impl BVH {
     ///
     fn pivot_to_miss(&mut self) {
         for i in 0..self.nodes.len() {
-            if i as u32 >= self.nodes[0].right && self.nodes[i].miss == 0 {
+            if i >= self.nodes[0].right() && self.nodes[i].miss() == 0 {
                 // The right most node's pivot would be the root node.
                 // To invalidate their misses and indicate a miss of the whole tree they are set to
                 // 0.
                 // The root node (0) cannot be a miss.
                 // TODO: check weather it would be better to set it to N+1
-                self.nodes[i].miss = 0;
+                self.nodes[i].set_miss(0);
             } else {
-                self.nodes[i].miss = self.nodes[self.nodes[i].miss as usize].right;
+                let miss = self.nodes[i].miss();
+                let miss = self.nodes[miss].right();
+                self.nodes[i].set_miss(miss);
             }
         }
-        self.nodes[0].miss = 0;
+        self.nodes[0].set_miss(0);
     }
+}
+impl<Node: BvhNode + std::fmt::Debug> BVH<Node>{
     pub fn print_rec(&self, index: usize, indent_string: &mut String) {
         println!("{}index: {}, {:?}", indent_string, index, self.nodes[index]);
-        if self.nodes[index].ty == FlatBvhNode::TY_NODE {
+        if self.nodes[index].is_node(){
             indent_string.push(' ');
             print!("l:");
             self.print_rec(index + 1, indent_string);
             print!("r:");
-            self.print_rec(self.nodes[index].right as usize, indent_string);
+            self.print_rec(self.nodes[index].right(), indent_string);
             indent_string.pop();
         }
     }
