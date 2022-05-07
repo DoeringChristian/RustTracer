@@ -334,18 +334,27 @@ impl FlatBvhTree {
     /// * `children` the children of the parent who are split into two parts.
     /// * `pivot` the pivot of the parent node. The pivot of a node is the parent of the first
     /// parent, that is a left node.
+    /// It can also be thought of as the lowest common ancestor of the tree.
     ///
-    ///
+    ///```text
     ///             0
     ///         /       \
     ///     1               2
     ///   /   \           /   \
     /// 3       4       5       6
     ///
+    ///```
+    ///
     /// In this example the pivot relation is as follows:
     /// 0 is the pivot of 1 and 4,
     /// 1 is the pivot of 3,
     /// 2 is the pivot of 5.
+    ///
+    /// For the pivot following rules hold: 
+    /// If N is a node in the tree, N_L, N_R are its left/right children.
+    /// p(N) is the pivot of N for any node N.
+    /// Then p(N_L) = N and p(N_R) = p(N)
+    /// 
     ///
     /// The miss pointer of any node is then just the right pointer of its pivot.
     ///
