@@ -84,10 +84,15 @@ fn main() {
             tris,
         };
 
+        /*
         let bvh = BvhTree::build_sweep(mesh.tris.iter().enumerate().map(|(i, tri)| (i, mesh.get_for_tri(tri).into())));
         bvh.print();
         let iterative = bvh.generate_iterative();
         for node in iterative.nodes{
             println!("{:?}", node);
         }
+        */
+
+        let bvh = FlatBvhTree::build_sweep(mesh.tris.iter().enumerate().map(|(i, tri)| (i, mesh.get_for_tri(tri).into())));
+        bvh.print_rec(0, &mut String::from(""));
 }
