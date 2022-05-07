@@ -147,4 +147,5 @@ fn main() {
             .enumerate()
             .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
     );
+    bvh.print_rec(0, &mut String::from(""));
 }

@@ -201,6 +201,7 @@ impl<Node: BVHNode> BVH<Node> {
                 // a      c        b
                 // [   |   |   |   ]
                 // n = ceil((c-a)/(b-a) * N) -1
+                // TODO: safeguard for division.
                 let n = (((child.aabb.centroid()[axis] - centoid_aabb.min[axis])/split_axis_size * (N as f32)).ceil()-1.) as usize;
                 // Insert child into bucket.
                 buckets[n].push(*child);
@@ -256,8 +257,8 @@ impl<Node: BVHNode> BVH<Node> {
                 }
             }
 
-            // If there should only be one bucket occupied (can only happen if there are only two
-            // children) we just split them in 2.
+            // If there should only be one bucket occupied (which could happen if all centroids are
+            // in the sampe place) we just split them in 2.
             if count_non_empty == 1{
                 children_split = children.len()/2;
             }
