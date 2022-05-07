@@ -330,6 +330,7 @@ impl FlatBvhTree{
                 // To invalidate their misses and indicate a miss of the whole tree they are set to
                 // 0.
                 // The root node (0) cannot be a miss.
+                // TODO: check weather it would be better to set it to N+1
                 self.nodes[i].miss = 0;
             }
             else{
