@@ -3,10 +3,12 @@ use std::ops::Range;
 mod aabb;
 mod bvh;
 mod glsl_bvh;
+mod bvh_bucket;
 
 use aabb::*;
 use bvh::*;
 use glsl_bvh::*;
+use bvh_bucket::*;
 
 pub trait Pos3 {
     fn pos3(&self) -> [f32; 3];

@@ -285,7 +285,7 @@ impl<Node: BVHNode> BVH<Node> {
     /// right node of the pivot.
     /// This needs to be done after generating the tree with the sweep_pivot methode.
     ///
-    fn pivot_to_miss(&mut self) {
+    pub(crate) fn pivot_to_miss(&mut self) {
         for i in 0..self.nodes.len() {
             if i >= self.nodes[0].right() && self.nodes[i].miss() == 0 {
                 // The right most node's pivot would be the root node.
