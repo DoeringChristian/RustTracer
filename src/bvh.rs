@@ -461,31 +461,33 @@ mod test {
     pub fn test_suzanne_8() {
         let mesh = load_suzanne();
 
-        let bvh = {
+        {
             time_test::time_test!("build_buckets_8");
-            GlslBVH::build_buckets_8(
-                mesh.tris
-                    .iter()
-                    .enumerate()
-                    .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
-            )
-        };
-        bvh.print_rec(0, &mut String::from(""));
+            for _ in 0..1 {
+                GlslBVH::build_buckets_8(
+                    mesh.tris
+                        .iter()
+                        .enumerate()
+                        .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
+                );
+            }
+        }
     }
 
     #[test]
     pub fn test_suzanne_16() {
         let mesh = load_suzanne();
 
-        let bvh = {
+        {
             time_test::time_test!("build_buckets_16");
-            GlslBVH::build_buckets_16(
-                mesh.tris
-                    .iter()
-                    .enumerate()
-                    .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
-            )
-        };
-        bvh.print_rec(0, &mut String::from(""));
+            for _ in 0..1 {
+                GlslBVH::build_buckets_16(
+                    mesh.tris
+                        .iter()
+                        .enumerate()
+                        .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
+                );
+            }
+        }
     }
 }
