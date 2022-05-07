@@ -281,7 +281,7 @@ impl BvhTree {
         let mut dst = Vec::<FlatBvhNode>::with_capacity(self.nodes.len());
         self.add_flat(&mut dst, self.root, 0);
         let mut dst = FlatBvhTree { nodes: dst };
-        dst.pivot_to_direct();
+        dst.pivot_to_miss();
         dst
     }
 }
@@ -306,7 +306,7 @@ pub struct FlatBvhTree {
 }
 
 impl FlatBvhTree {
-    fn pivot_to_direct(&mut self) {
+    fn pivot_to_miss(&mut self) {
         for i in 0..self.nodes.len() {
             if i as u32 >= self.nodes[0].right && self.nodes[i].miss == 0 {
                 // The right most node's pivot would be the root node.
@@ -327,8 +327,9 @@ impl FlatBvhTree {
         let aabb = children.iter().map(|c| c.1).fold(children[0].1, AABB::grow);
         let mut nodes: Vec<FlatBvhNode> = Vec::new();
         Self::sweep_pivot(&mut nodes, aabb, &mut children, 0);
-
-        Self { nodes }
+        let mut tree = Self{nodes};
+        Self::pivot_to_miss(&mut tree);
+        tree
     }
     ///
     /// Generates the BVH into the dst vector with the `miss` parameter being the pivot of that
