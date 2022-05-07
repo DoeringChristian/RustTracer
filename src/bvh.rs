@@ -166,6 +166,23 @@ impl<Node: BVHNode> BVH<Node> {
                     pivot
             ));
             dst.len() - 1
+        } else if children.len() == 2{
+            let l_aabb = children[0].aabb;
+            let r_aabb = children[1].aabb;
+
+            let (l_children, r_children) = children.split_at_mut(1);
+            let node_i = dst.len();
+            dst.push(Node::new_node(
+                    p_aabb,
+                    0,
+                    pivot,
+            ));
+            let l_node_i = Self::buckets_pivot::<N>(dst, l_aabb, l_children, buckets, node_i);
+            let r_node_i = Self::buckets_pivot::<N>(dst, r_aabb, r_children, buckets, pivot);
+            dst[node_i].set_right(r_node_i);
+            //dst[node_i].right = r_node_i as u32;
+            //dst[node_i].miss = pivot as u32;
+            node_i
         } else {
             // clear all buckets.
             for bucket in buckets.iter_mut(){
@@ -180,13 +197,15 @@ impl<Node: BVHNode> BVH<Node> {
 
             // Push the children into their respective buckets.
             for child in children.iter(){
-                //println!("{}, {}", split_axis_size, (child.aabb.centroid()[axis] - centoid_aabb.min[axis])/split_axis_size);
                 // The bucket number to which to push the child.
-                let bn = (((child.aabb.centroid()[axis] - centoid_aabb.min[axis])/split_axis_size * (N as f32)).ceil()-1.) as usize;
+                // a      c        b
+                // [   |   |   |   ]
+                // n = ceil((c-a)/(b-a) * N) -1
+                let n = (((child.aabb.centroid()[axis] - centoid_aabb.min[axis])/split_axis_size * (N as f32)).ceil()-1.) as usize;
                 // Insert child into bucket.
-                buckets[bn].push(*child);
+                buckets[n].push(*child);
                 // Grow the aabb corresponding to that bucket.
-                bucket_aabbs[bn] = bucket_aabbs[bn].grow(child.aabb);
+                bucket_aabbs[n] = bucket_aabbs[n].grow(child.aabb);
             }
 
             // Accumulate the bounding boxes of the buffers for the left and right side. This gives
@@ -219,8 +238,9 @@ impl<Node: BVHNode> BVH<Node> {
                 }
             }
 
-            let min_sah_l_aabb = l_bucket_aabb_acc[bucket_split];
-            let min_sah_r_aabb = r_bucket_aabb_acc[bucket_split];
+            // Extract the aabbs of the left and right children.
+            let l_abb = l_bucket_aabb_acc[bucket_split];
+            let r_abb = r_bucket_aabb_acc[bucket_split];
 
             // Fill children back from bucket into children slice.
             let mut child_index = 0;
@@ -251,8 +271,8 @@ impl<Node: BVHNode> BVH<Node> {
                     0,
                     pivot,
             ));
-            let l_node_i = Self::buckets_pivot::<N>(dst, min_sah_l_aabb, l_children, buckets, node_i);
-            let r_node_i = Self::buckets_pivot::<N>(dst, min_sah_r_aabb, r_children, buckets, pivot);
+            let l_node_i = Self::buckets_pivot::<N>(dst, l_abb, l_children, buckets, node_i);
+            let r_node_i = Self::buckets_pivot::<N>(dst, r_abb, r_children, buckets, pivot);
             dst[node_i].set_right(r_node_i);
             //dst[node_i].right = r_node_i as u32;
             //dst[node_i].miss = pivot as u32;
