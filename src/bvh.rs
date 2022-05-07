@@ -1,76 +1,5 @@
-use std::iter::Enumerate;
 
-pub enum Axis {
-    X,
-    Y,
-    Z,
-}
-
-impl From<(usize, AABB)> for IndexedAABB{
-    fn from(src: (usize, AABB)) -> Self {
-        IndexedAABB{
-            index: src.0,
-            aabb: src.1,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Default, Debug)]
-pub struct IndexedAABB{
-    pub index: usize,
-    pub aabb: AABB,
-}
-
-#[derive(Copy, Clone, Default, Debug)]
-pub struct AABB {
-    pub min: [f32; 3],
-    pub max: [f32; 3],
-}
-
-impl AABB {
-    pub fn grow(self, other: AABB) -> AABB {
-        AABB {
-            min: [
-                self.min[0].min(other.min[0]),
-                self.min[1].min(other.min[1]),
-                self.min[2].min(other.min[2]),
-            ],
-            max: [
-                self.max[0].max(other.max[0]),
-                self.max[1].max(other.max[1]),
-                self.max[2].max(other.max[2]),
-            ],
-        }
-    }
-    pub fn largest_axis(&self) -> Axis {
-        self.largest_axis_with_size().0
-    }
-    pub fn largest_axis_with_size(&self) -> (Axis, f32) {
-        let x_size = self.max[0] - self.min[0];
-        let y_size = self.max[1] - self.min[1];
-        let z_size = self.max[2] - self.min[2];
-        if x_size > y_size && x_size > z_size {
-            (Axis::X, x_size)
-        } else if y_size > x_size && y_size > z_size {
-            (Axis::Y, y_size)
-        } else {
-            (Axis::Z, z_size)
-        }
-    }
-    pub fn centroid(&self) -> [f32; 3] {
-        [
-            self.max[0] / 2. + self.min[0] / 2.,
-            self.max[1] / 2. + self.min[1] / 2.,
-            self.max[2] / 2. + self.min[2] / 2.,
-        ]
-    }
-    /// Surface area of the AABB.
-    pub fn surface_area(&self) -> f32 {
-        2. * (self.max[0] - self.min[0]) * (self.max[1] - self.min[1])
-            + 2. * (self.max[1] - self.min[1]) * (self.max[2] - self.min[2])
-            + 2. * (self.max[0] - self.min[0]) * (self.max[2] - self.min[2])
-    }
-}
+use crate::aabb::*;
 
 pub trait BVHNode{
     fn new_node(aabb: AABB, right: usize, miss: usize) -> Self;
@@ -83,75 +12,9 @@ pub trait BVHNode{
     fn is_node(&self) -> bool;
 }
 
-#[repr(C)]
-#[derive(Debug)]
-pub struct GlslBVHNode {
-    pub min: [f32; 4],
-    pub max: [f32; 4],
-    pub ty: u32,
-    pub right: u32,
-    pub miss: u32,
-}
-impl GlslBVHNode {
-    pub const TY_NODE: u32 = 0x00;
-    pub const TY_LEAF: u32 = 0x01;
-}
-impl BVHNode for GlslBVHNode{
-    #[inline]
-    fn new_node(aabb: AABB, right: usize, miss: usize) -> Self {
-        GlslBVHNode{
-            ty: Self::TY_NODE,
-            min: [aabb.min[0], aabb.min[1], aabb.min[2], 0.],
-            max: [aabb.max[0], aabb.max[1], aabb.max[2], 0.],
-            right: right as u32,
-            miss: miss as u32,
-        }
-    }
-
-    #[inline]
-    fn new_leaf(aabb: AABB, index: usize, miss: usize) -> Self {
-        GlslBVHNode{
-            ty: Self::TY_LEAF,
-            min: [aabb.min[0], aabb.min[1], aabb.min[2], 0.],
-            max: [aabb.max[0], aabb.max[1], aabb.max[2], 0.],
-            right: index as u32,
-            miss: miss as u32,
-        }
-    }
-
-    #[inline]
-    fn set_right(&mut self, right: usize) {
-        self.right = right as u32;
-    }
-
-    #[inline]
-    fn set_miss(&mut self, miss: usize) {
-        self.miss = miss as u32;
-    }
-
-    #[inline]
-    fn miss(&self) -> usize {
-        self.miss as usize
-    }
-
-    #[inline]
-    fn right(&self) -> usize {
-        self.right as usize
-    }
-
-    #[inline]
-    fn is_leaf(&self) -> bool {
-        self.ty == Self::TY_LEAF
-    }
-
-    #[inline]
-    fn is_node(&self) -> bool {
-        self.ty == Self::TY_NODE
-    }
-}
-
-pub type GlslBVH = BVH<GlslBVHNode>;
-
+///
+/// TODO: Implement Bucket methode.
+///
 #[derive(Debug)]
 pub struct BVH<Node: BVHNode>{
     pub nodes: Vec<Node>,
@@ -160,7 +23,6 @@ pub struct BVH<Node: BVHNode>{
 impl<Node: BVHNode> BVH<Node> {
     pub fn build_sweep<Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
         let mut children: Vec<IndexedAABB> = iter.map(|x| x.into()).collect();
-        let n_leafs = children.len();
         let aabb = children.iter().map(|c| c.aabb).fold(children[0].aabb, AABB::grow);
         let mut nodes: Vec<Node> = Vec::new();
         Self::sweep_pivot(&mut nodes, aabb, &mut children, 0);
@@ -231,6 +93,7 @@ impl<Node: BVHNode> BVH<Node> {
             ));
             dst.len() - 1
         } else {
+            //println!("{:?}", p_aabb);
             let mut min_sah = std::f32::MAX;
             let mut min_sah_idx = 0;
             let mut min_sah_l_aabb = children[0].aabb;
