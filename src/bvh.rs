@@ -72,250 +72,62 @@ impl AABB {
     }
 }
 
-#[derive(Debug)]
-pub enum BvhNode {
-    Leaf {
-        aabb: AABB,
-        index: usize,
-    },
-    Node {
-        aabb: AABB,
-        left: usize,
-        right: usize,
-    },
-}
-
-impl BvhNode {
-    pub fn aabb(&self) -> AABB {
-        match self {
-            Self::Leaf { aabb, .. } => *aabb,
-            Self::Node { aabb, .. } => *aabb,
-        }
-    }
-}
-
-// TODO: x, y, z_ord bool vec.
-pub struct BvhTree {
-    n_leafs: usize,
-    nodes: Vec<BvhNode>,
-    root: usize,
-}
-
-impl BvhTree {
-    pub fn build_sweep<I: Iterator<Item = (usize, AABB)>>(iter: I) -> Self {
-        let mut nodes: Vec<BvhNode> = iter
-            .map(|(i, aabb)| BvhNode::Leaf { aabb, index: i })
-            .collect();
-        let n_leafs = nodes.len();
-        let aabb = nodes.iter().map(|n| n.aabb()).reduce(AABB::grow).unwrap();
-        let mut children: Vec<usize> = (0..n_leafs).collect();
-        let root = Self::sweep(&mut nodes, n_leafs, aabb, &mut children);
-        Self {
-            n_leafs,
-            nodes,
-            root,
-        }
-    }
-    fn sweep(
-        nodes: &mut Vec<BvhNode>,
-        n_leafs: usize,
-        p_aabb: AABB,
-        children: &mut [usize],
-    ) -> usize {
-        let (split_axis, split_axis_size) = p_aabb.largest_axis_with_size();
-
-        // Order the children along the longest axis.
-        // TODO: Implementation with 3 sorted lists.
-        // as described here: https://graphics.cg.uni-saarland.de/courses/cg1-2018/slides/Building_good_BVHs.pdf
-        match split_axis {
-            Axis::X => children.sort_by(|a, b| {
-                nodes[*a].aabb().centroid()[0]
-                    .partial_cmp(&nodes[*b].aabb().centroid()[0])
-                    .unwrap()
-            }),
-            Axis::Y => children.sort_by(|a, b| {
-                nodes[*a].aabb().centroid()[1]
-                    .partial_cmp(&nodes[*b].aabb().centroid()[1])
-                    .unwrap()
-            }),
-            Axis::Z => children.sort_by(|a, b| {
-                nodes[*a].aabb().centroid()[2]
-                    .partial_cmp(&nodes[*b].aabb().centroid()[2])
-                    .unwrap()
-            }),
-        }
-
-        if children.len() == 1 {
-            children[0]
-        } else if children.len() == 2 {
-            nodes.push(BvhNode::Node {
-                aabb: p_aabb,
-                left: children[0],
-                right: children[1],
-            });
-            println!("Parent: {:?}", p_aabb);
-            println!("");
-            nodes.len() - 1
-        } else {
-            let mut min_sah = std::f32::MAX;
-            let mut min_sah_idx = 0;
-            let mut min_sah_l_aabb = nodes[children[0]].aabb();
-            let mut min_sah_r_aabb = AABB::default();
-            let p_sa = p_aabb.surface_area();
-            for i in 0..(children.len() - 1) {
-                // The left aabb can be grown with the iteration
-                let l_aabb = min_sah_l_aabb.grow(nodes[children[i]].aabb());
-                let l_sa = l_aabb.surface_area();
-                // The left aabb has to be generated for each iteration.
-                // This should always at leas iterate over the last leaf node.
-                let r_aabb = ((i + 1)..children.len())
-                    .map(|i| nodes[children[i]].aabb())
-                    .fold(nodes[children[i + 1]].aabb(), AABB::grow);
-                let r_sa = r_aabb.surface_area();
-
-                let sah = (l_sa + r_sa) / p_sa;
-                if sah < min_sah {
-                    min_sah = sah;
-                    min_sah_idx = i;
-                    min_sah_l_aabb = l_aabb;
-                    min_sah_r_aabb = r_aabb;
-                }
-            }
-            let (l_children, r_children) = children.split_at_mut(min_sah_idx + 1);
-            let r_node_i = Self::sweep(nodes, n_leafs, min_sah_r_aabb, r_children);
-            let l_node_i = Self::sweep(nodes, n_leafs, min_sah_l_aabb, l_children);
-            nodes.push(BvhNode::Node {
-                aabb: p_aabb,
-                left: l_node_i,
-                right: r_node_i,
-            });
-            nodes.len() - 1
-        }
-    }
-
-    pub fn print_nodes(&self, index: usize, indent: usize) {
-        let mut indent_string = String::new();
-        for i in 0..indent {
-            indent_string.push(' ');
-        }
-        match self.nodes[index] {
-            BvhNode::Node { left, right, aabb } => {
-                println!(
-                    "{}[index: {}, aabb: ({:?}, {:?}), left: {}, right: {}]",
-                    indent_string, index, aabb.min, aabb.max, left, right
-                );
-                self.print_nodes(left, indent + 1);
-                self.print_nodes(right, indent + 1);
-            }
-            BvhNode::Leaf { aabb, index: tri } => {
-                println!(
-                    "{}[index: {}, aabb: ({:?}, {:?}), tri: {}]",
-                    indent_string, index, aabb.min, aabb.max, tri
-                );
-            }
-        }
-    }
-    pub fn print(&self) {
-        self.print_nodes(self.root, 0);
-        println!("");
-    }
-
-    pub fn print_pivot(&self, index: usize, pivot: usize, indent: usize) {
-        let mut indent_string = String::new();
-        for i in 0..indent {
-            indent_string.push(' ');
-        }
-
-        match self.nodes[index] {
-            BvhNode::Node { left, right, aabb } => {
-                println!("{}[index: {}, pivot: {}]", indent_string, index, pivot);
-                self.print_pivot(left, index, indent + 1);
-                self.print_pivot(right, pivot, indent + 1);
-            }
-            BvhNode::Leaf { aabb, index: tri } => {
-                println!(
-                    "{}[index: {}, pivot: {}, tri: {}]",
-                    indent_string, index, pivot, tri
-                );
-            }
-        }
-    }
-
-    fn generate_flat_pivot(&self) -> FlatBvhTree {
-        let mut dst = Vec::<FlatBvhNode>::with_capacity(self.nodes.len());
-        self.add_flat(&mut dst, self.root, 0);
-        FlatBvhTree { nodes: dst }
-    }
-
-    ///
-    /// The pivot of a node is the parent of the first parent node of it, that is a left node of
-    /// its parent. The pivot can than be used in combination with the right "pointer" to generate
-    /// the miss index.
-    /// TODO: Test if preorder would be better.
-    /// TODO: The right most nodes have a miss pointing to the right child of root. This has to be
-    /// fixed.
-    ///
-    pub fn add_flat(&self, dst: &mut Vec<FlatBvhNode>, index: usize, dst_pivot: u32) -> usize {
-        let aabb = self.nodes[index].aabb();
-        let min = [aabb.min[0], aabb.min[1], aabb.min[2], 0.];
-        let max = [aabb.max[0], aabb.max[1], aabb.max[2], 0.];
-        match self.nodes[index] {
-            BvhNode::Node { left, right, .. } => {
-                let dst_index = dst.len();
-                dst.push(FlatBvhNode {
-                    ty: FlatBvhNode::TY_NODE,
-                    miss: dst_pivot,
-                    right: 0,
-                    min,
-                    max,
-                });
-                self.add_flat(dst, left, dst_index as u32);
-                dst[dst_index as usize].right = self.add_flat(dst, right, dst_pivot) as u32;
-                dst_index
-            }
-            BvhNode::Leaf { index: ext_idx, .. } => {
-                let dst_index = dst.len();
-                dst.push(FlatBvhNode {
-                    ty: FlatBvhNode::TY_LEAF,
-                    miss: dst_pivot,
-                    right: ext_idx as u32,
-                    min,
-                    max,
-                });
-                dst_index
-            }
-        }
-    }
-
-    pub fn generate_iterative(&self) -> FlatBvhTree {
-        let mut dst = Vec::<FlatBvhNode>::with_capacity(self.nodes.len());
-        self.add_flat(&mut dst, self.root, 0);
-        let mut dst = FlatBvhTree { nodes: dst };
-        dst.pivot_to_miss();
-        dst
-    }
+pub trait BvhNode{
+    fn new_node(aabb: AABB, right: usize, miss: usize) -> Self;
+    fn new_leaf(aabb: AABB, index: usize, miss: usize) -> Self;
+    fn set_right(&mut self, right: usize);
+    fn set_miss(&mut self, miss: usize);
 }
 
 #[repr(C)]
 #[derive(Debug)]
 pub struct FlatBvhNode {
+    pub min: [f32; 4],
+    pub max: [f32; 4],
     pub ty: u32,
     pub right: u32,
     pub miss: u32,
-    pub min: [f32; 4],
-    pub max: [f32; 4],
 }
 impl FlatBvhNode {
     pub const TY_NODE: u32 = 0x00;
     pub const TY_LEAF: u32 = 0x01;
 }
+impl BvhNode for FlatBvhNode{
+    fn new_node(aabb: AABB, right: usize, miss: usize) -> Self {
+        FlatBvhNode{
+            ty: Self::TY_NODE,
+            min: [aabb.min[0], aabb.min[1], aabb.min[2], 0.],
+            max: [aabb.max[0], aabb.max[1], aabb.max[2], 0.],
+            right: right as u32,
+            miss: miss as u32,
+        }
+    }
+
+    fn new_leaf(aabb: AABB, index: usize, miss: usize) -> Self {
+        FlatBvhNode{
+            ty: Self::TY_LEAF,
+            min: [aabb.min[0], aabb.min[1], aabb.min[2], 0.],
+            max: [aabb.max[0], aabb.max[1], aabb.max[2], 0.],
+            right: index as u32,
+            miss: miss as u32,
+        }
+    }
+
+    fn set_right(&mut self, right: usize) {
+        self.right = right as u32;
+    }
+
+    fn set_miss(&mut self, miss: usize) {
+        self.miss = miss as u32;
+    }
+}
 
 #[derive(Debug)]
-pub struct FlatBvhTree {
+pub struct BVH {
     pub nodes: Vec<FlatBvhNode>,
 }
 
-impl FlatBvhTree {
+impl BVH {
     pub fn build_sweep<Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
         let mut children: Vec<IndexedAABB> = iter.map(|x| x.into()).collect();
         let n_leafs = children.len();
