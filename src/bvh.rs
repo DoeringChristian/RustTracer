@@ -306,6 +306,11 @@ pub struct FlatBvhTree {
 }
 
 impl FlatBvhTree {
+    ///
+    /// Change the pivot stored in the miss "pointer" to the miss pointer by setting it to the
+    /// right node of the pivot.
+    /// This needs to be done after generating the tree with the sweep_pivot methode.
+    ///
     fn pivot_to_miss(&mut self) {
         for i in 0..self.nodes.len() {
             if i as u32 >= self.nodes[0].right && self.nodes[i].miss == 0 {
