@@ -1,14 +1,24 @@
 use std::iter::Enumerate;
 
-pub trait BvhShape {
-    //type Iter: Iterator<Item = (usize, AABB)>;
-    fn primitive_iter(&self) -> dyn Iterator<Item = (usize, AABB)>;
-}
-
 pub enum Axis {
     X,
     Y,
     Z,
+}
+
+impl From<(usize, AABB)> for IndexedAABB{
+    fn from(src: (usize, AABB)) -> Self {
+        IndexedAABB{
+            index: src.0,
+            aabb: src.1,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Default, Debug)]
+pub struct IndexedAABB{
+    pub index: usize,
+    pub aabb: AABB,
 }
 
 #[derive(Copy, Clone, Default, Debug)]
@@ -306,30 +316,10 @@ pub struct FlatBvhTree {
 }
 
 impl FlatBvhTree {
-    ///
-    /// Change the pivot stored in the miss "pointer" to the miss pointer by setting it to the
-    /// right node of the pivot.
-    /// This needs to be done after generating the tree with the sweep_pivot methode.
-    ///
-    fn pivot_to_miss(&mut self) {
-        for i in 0..self.nodes.len() {
-            if i as u32 >= self.nodes[0].right && self.nodes[i].miss == 0 {
-                // The right most node's pivot would be the root node.
-                // To invalidate their misses and indicate a miss of the whole tree they are set to
-                // 0.
-                // The root node (0) cannot be a miss.
-                // TODO: check weather it would be better to set it to N+1
-                self.nodes[i].miss = 0;
-            } else {
-                self.nodes[i].miss = self.nodes[self.nodes[i].miss as usize].right;
-            }
-        }
-        self.nodes[0].miss = 0;
-    }
-    pub fn build_sweep<I: Iterator<Item = (usize, AABB)>>(iter: I) -> Self {
-        let mut children: Vec<(usize, AABB)> = iter.collect();
+    pub fn build_sweep<Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
+        let mut children: Vec<IndexedAABB> = iter.map(|x| x.into()).collect();
         let n_leafs = children.len();
-        let aabb = children.iter().map(|c| c.1).fold(children[0].1, AABB::grow);
+        let aabb = children.iter().map(|c| c.aabb).fold(children[0].aabb, AABB::grow);
         let mut nodes: Vec<FlatBvhNode> = Vec::new();
         Self::sweep_pivot(&mut nodes, aabb, &mut children, 0);
         let mut tree = Self{nodes};
@@ -362,7 +352,7 @@ impl FlatBvhTree {
     fn sweep_pivot(
         dst: &mut Vec<FlatBvhNode>,
         p_aabb: AABB,
-        children: &mut [(usize, AABB)],
+        children: &mut [IndexedAABB],
         pivot: usize,
     ) -> usize {
         let (split_axis, split_axis_size) = p_aabb.largest_axis_with_size();
@@ -372,20 +362,20 @@ impl FlatBvhTree {
         // as described here: https://graphics.cg.uni-saarland.de/courses/cg1-2018/slides/Building_good_BVHs.pdf
         match split_axis {
             Axis::X => {
-                children.sort_by(|a, b| a.1.centroid()[0].partial_cmp(&b.1.centroid()[0]).unwrap())
+                children.sort_by(|a, b| a.aabb.centroid()[0].partial_cmp(&b.aabb.centroid()[0]).unwrap())
             }
             Axis::Y => {
-                children.sort_by(|a, b| a.1.centroid()[1].partial_cmp(&b.1.centroid()[1]).unwrap())
+                children.sort_by(|a, b| a.aabb.centroid()[1].partial_cmp(&b.aabb.centroid()[1]).unwrap())
             }
             Axis::Z => {
-                children.sort_by(|a, b| a.1.centroid()[2].partial_cmp(&b.1.centroid()[2]).unwrap())
+                children.sort_by(|a, b| a.aabb.centroid()[2].partial_cmp(&b.aabb.centroid()[2]).unwrap())
             }
         }
 
         if children.len() == 1 {
             dst.push(FlatBvhNode {
                 ty: FlatBvhNode::TY_LEAF,
-                right: children[0].0 as u32,
+                right: children[0].index as u32,
                 miss: pivot as u32,
                 min: [p_aabb.min[0], p_aabb.min[1], p_aabb.min[2], 0.],
                 max: [p_aabb.max[0], p_aabb.max[1], p_aabb.max[2], 0.],
@@ -394,20 +384,20 @@ impl FlatBvhTree {
         } else {
             let mut min_sah = std::f32::MAX;
             let mut min_sah_idx = 0;
-            let mut min_sah_l_aabb = children[0].1;
+            let mut min_sah_l_aabb = children[0].aabb;
             let mut min_sah_r_aabb = AABB::default();
             let p_sa = p_aabb.surface_area();
 
             for i in 0..(children.len() - 1) {
                 // The left aabb can be grown with the iteration
-                let l_aabb = min_sah_l_aabb.grow(children[i].1);
+                let l_aabb = min_sah_l_aabb.grow(children[i].aabb);
                 let l_sa = l_aabb.surface_area();
 
                 // The right aabb has to be generated for each iteration.
                 // This should always at least iterate over the last leaf node.
                 let r_aabb = ((i + 1)..children.len())
-                    .map(|i| children[i].1)
-                    .fold(children[i + 1].1, AABB::grow);
+                    .map(|i| children[i].aabb)
+                    .fold(children[i + 1].aabb, AABB::grow);
                 let r_sa = r_aabb.surface_area();
 
                 let sah = (l_sa + r_sa) / p_sa;
@@ -433,6 +423,26 @@ impl FlatBvhTree {
             dst[node_i].miss = pivot as u32;
             node_i
         }
+    }
+    ///
+    /// Change the pivot stored in the miss "pointer" to the miss pointer by setting it to the
+    /// right node of the pivot.
+    /// This needs to be done after generating the tree with the sweep_pivot methode.
+    ///
+    fn pivot_to_miss(&mut self) {
+        for i in 0..self.nodes.len() {
+            if i as u32 >= self.nodes[0].right && self.nodes[i].miss == 0 {
+                // The right most node's pivot would be the root node.
+                // To invalidate their misses and indicate a miss of the whole tree they are set to
+                // 0.
+                // The root node (0) cannot be a miss.
+                // TODO: check weather it would be better to set it to N+1
+                self.nodes[i].miss = 0;
+            } else {
+                self.nodes[i].miss = self.nodes[self.nodes[i].miss as usize].right;
+            }
+        }
+        self.nodes[0].miss = 0;
     }
     pub fn print_rec(&self, index: usize, indent_string: &mut String) {
         println!("{}index: {}, {:?}", indent_string, index, self.nodes[index]);
