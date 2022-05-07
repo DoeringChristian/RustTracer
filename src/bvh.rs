@@ -2,8 +2,9 @@
 use crate::aabb::*;
 
 pub trait BVHNode{
+    type ExternIndex: Copy + Clone;
     fn new_node(aabb: AABB, right: usize, miss: usize) -> Self;
-    fn new_leaf(aabb: AABB, index: usize, miss: usize) -> Self;
+    fn new_leaf(aabb: AABB, index: Self::ExternIndex, miss: usize) -> Self;
     fn set_right(&mut self, right: usize);
     fn set_miss(&mut self, miss: usize);
     fn right(&self) -> usize;
@@ -21,8 +22,8 @@ pub struct BVH<Node: BVHNode>{
 }
 
 impl<Node: BVHNode> BVH<Node> {
-    pub fn build_sweep<Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
-        let mut children: Vec<IndexedAABB> = iter.map(|x| x.into()).collect();
+    pub fn build_sweep<Item: Into<IndexedAABB<Node::ExternIndex>>, I: Iterator<Item = Item>>(iter: I) -> Self {
+        let mut children: Vec<IndexedAABB<Node::ExternIndex>> = iter.map(|x| x.into()).collect();
         let aabb = children.iter().map(|c| c.aabb).fold(children[0].aabb, AABB::grow);
         let mut nodes: Vec<Node> = Vec::new();
         Self::sweep_pivot(&mut nodes, aabb, &mut children, 0);
@@ -65,7 +66,7 @@ impl<Node: BVHNode> BVH<Node> {
     fn sweep_pivot(
         dst: &mut Vec<Node>,
         p_aabb: AABB,
-        children: &mut [IndexedAABB],
+        children: &mut [IndexedAABB<Node::ExternIndex>],
         pivot: usize,
     ) -> usize {
         let (split_axis, split_axis_size) = p_aabb.largest_axis_with_size();
@@ -135,11 +136,11 @@ impl<Node: BVHNode> BVH<Node> {
             node_i
         }
     }
-    pub fn build_buckets_16<Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
+    pub fn build_buckets_16<Item: Into<IndexedAABB<Node::ExternIndex>>, I: Iterator<Item = Item>>(iter: I) -> Self {
         Self::build_buckets_num::<16, Item, I>(iter)
     }
-    pub fn build_buckets_num<const N: usize, Item: Into<IndexedAABB>, I: Iterator<Item = Item>>(iter: I) -> Self {
-        let mut children: Vec<IndexedAABB> = iter.map(|x| x.into()).collect();
+    pub fn build_buckets_num<const N: usize, Item: Into<IndexedAABB<Node::ExternIndex>>, I: Iterator<Item = Item>>(iter: I) -> Self {
+        let mut children: Vec<IndexedAABB<Node::ExternIndex>> = iter.map(|x| x.into()).collect();
         let aabb = children.iter().map(|c| c.aabb).fold(children[0].aabb, AABB::grow);
         let mut nodes: Vec<Node> = Vec::new();
         let mut buckets = vec![Vec::new(); N];
@@ -154,8 +155,8 @@ impl<Node: BVHNode> BVH<Node> {
     fn buckets_pivot<const N: usize>(
         dst: &mut Vec<Node>,
         p_aabb: AABB,
-        children: &mut [IndexedAABB],
-        buckets: &mut Vec<Vec<IndexedAABB>>,
+        children: &mut [IndexedAABB<Node::ExternIndex>],
+        buckets: &mut Vec<Vec<IndexedAABB<Node::ExternIndex>>>,
         pivot: usize,
     ) -> usize {
 

@@ -16,8 +16,8 @@ impl From<Axis> for usize{
     }
 }
 
-impl From<(usize, AABB)> for IndexedAABB{
-    fn from(src: (usize, AABB)) -> Self {
+impl<Index> From<(Index, AABB)> for IndexedAABB<Index>{
+    fn from(src: (Index, AABB)) -> Self {
         IndexedAABB{
             index: src.0,
             aabb: src.1,
@@ -26,8 +26,8 @@ impl From<(usize, AABB)> for IndexedAABB{
 }
 
 #[derive(Copy, Clone, Default, Debug)]
-pub struct IndexedAABB{
-    pub index: usize,
+pub struct IndexedAABB<Index>{
+    pub index: Index,
     pub aabb: AABB,
 }
 

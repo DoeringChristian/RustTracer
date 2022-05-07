@@ -16,6 +16,7 @@ impl GlslBVHNode {
     pub const TY_LEAF: u32 = 0x01;
 }
 impl BVHNode for GlslBVHNode{
+    type ExternIndex = usize;
     #[inline]
     fn new_node(aabb: AABB, right: usize, miss: usize) -> Self {
         GlslBVHNode{
