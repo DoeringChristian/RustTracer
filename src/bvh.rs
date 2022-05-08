@@ -18,6 +18,7 @@ pub trait BVHNode {
 #[derive(Debug)]
 pub struct BVH<Node: BVHNode> {
     pub nodes: Vec<Node>,
+    aabb: AABB,
 }
 
 impl<Node: BVHNode> BVH<Node> {
@@ -31,7 +32,7 @@ impl<Node: BVHNode> BVH<Node> {
             .fold(children[0].aabb, AABB::grow);
         let mut nodes: Vec<Node> = Vec::new();
         Self::sweep_pivot(&mut nodes, aabb, &mut children, 0);
-        let mut tree = Self { nodes };
+        let mut tree = Self { nodes, aabb};
         Self::pivot_to_miss(&mut tree);
         tree
     }
@@ -166,7 +167,7 @@ impl<Node: BVHNode> BVH<Node> {
         let mut nodes: Vec<Node> = Vec::new();
         let mut buckets = vec![Vec::new(); N];
         Self::buckets_pivot::<N>(&mut nodes, aabb, &mut children, &mut buckets, 0);
-        let mut tree = Self { nodes };
+        let mut tree = Self { nodes, aabb };
         Self::pivot_to_miss(&mut tree);
         tree
     }
@@ -348,6 +349,12 @@ impl<Node: BVHNode> BVH<Node> {
             }
         }
         self.nodes[0].set_miss(0);
+    }
+    ///
+    /// Returns AABB of this BVH. This can be used to generate a TLAS.
+    ///
+    pub fn aabb(&self) -> AABB{
+        self.aabb
     }
 }
 impl<Node: BVHNode + std::fmt::Debug> BVH<Node> {
