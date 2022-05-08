@@ -7,6 +7,7 @@ mod glsl_bvh;
 use aabb::*;
 use bvh::*;
 use glsl_bvh::*;
+use ewgpu::*;
 
 pub trait Pos3 {
     fn pos3(&self) -> [f32; 3];
@@ -15,6 +16,7 @@ pub trait Pos3 {
 #[derive(Copy, Clone)]
 pub struct Vert {
     pub pos: [f32; 4],
+    pub color: [f32; 4],
 }
 
 impl Pos3 for Vert {
@@ -45,23 +47,15 @@ impl From<[Vert; 3]> for AABB {
 
 pub struct Mesh {
     pub verts: Vec<Vert>,
-    pub tris: Vec<[usize; 3]>,
+    pub indices: Vec<u32>,
 }
-
-/*
-impl BvhShape for Mesh{
-    fn primitive_iter(&self) -> dyn Iterator<Item = (usize, AABB)> {
-        self.tris.iter().enumerate().map(|(i, tri)|{(i, self.get_tri(i).into())})
-    }
-}
-*/
 
 impl Mesh {
     pub fn get_tri(&self, index: usize) -> [Vert; 3] {
         [
-            self.verts[self.tris[index][0]],
-            self.verts[self.tris[index][1]],
-            self.verts[self.tris[index][2]],
+            self.verts[self.indices[index] as usize],
+            self.verts[self.indices[index] as usize],
+            self.verts[self.indices[index] as usize],
         ]
     }
     pub fn get_for_tri(&self, indices: &[usize; 3]) -> [Vert; 3] {
@@ -77,76 +71,96 @@ fn main() {
     let verts = vec![
         Vert {
             pos: [0., 0., 0., 0.],
+            color: [0., 0., 0., 1.],
         },
         Vert {
             pos: [1., 0., 0., 0.],
+            color: [0., 0., 0., 1.],
         },
         Vert {
             pos: [1., 1., 0., 0.],
+            color: [0., 0., 0., 1.],
         },
         Vert {
             pos: [2., 0., 0., 0.],
+            color: [0., 0., 0., 1.],
         },
         Vert {
             pos: [3., 0., 0., 0.],
+            color: [0., 0., 0., 1.],
         },
         Vert {
             pos: [3., 1., 0., 0.],
+            color: [0., 0., 0., 1.],
         },
         Vert {
             pos: [2., 1., 0., 0.],
+            color: [0., 0., 0., 1.],
         },
         Vert {
             pos: [3., 1., 0., 0.],
+            color: [0., 0., 0., 1.],
         },
         Vert {
             pos: [3., 2., 0., 0.],
+            color: [0., 0., 0., 1.],
         },
     ];
-    let tris = vec![[0, 1, 2], [3, 4, 5], [6, 7, 8]];
+    let indices = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
 
-    let mesh = Mesh { verts, tris };
+    let mesh = Mesh { verts, indices };
 
     let bvh = GlslBVH::build_sweep(
-        mesh.tris
-            .iter()
-            .enumerate()
-            .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
+        (0..mesh.indices.len() / 3)
+            .into_iter()
+            .map(|i| IndexedAABB{ index: i * 3, aabb: mesh.get_tri(i * 3).into()}),
     );
     bvh.print_rec(0, &mut String::from(""));
 
-    let suzanne = tobj::load_obj("src/assets/suzanne.obj", &tobj::LoadOptions::default()).unwrap().0;
+    let suzanne = tobj::load_obj("src/assets/suzanne.obj", &tobj::LoadOptions::default())
+        .unwrap()
+        .0;
 
-    let verts = (0..(suzanne[0].mesh.positions.len()/3)).into_iter()
-            .map(|i|{
-                Vert{pos: [
-                    suzanne[0].mesh.positions[i*3], 
-                    suzanne[0].mesh.positions[i*3+1], 
-                    suzanne[0].mesh.positions[i*3+2], 
-                    0.
-                ]}
-            }).collect();
+    let verts = (0..(suzanne[0].mesh.positions.len() / 3))
+        .into_iter()
+        .map(|i| Vert {
+            pos: [
+                suzanne[0].mesh.positions[i * 3],
+                suzanne[0].mesh.positions[i * 3 + 1],
+                suzanne[0].mesh.positions[i * 3 + 2],
+                0.,
+            ],
+            color: [
+                *suzanne[0].mesh.vertex_color.get(i * 3).unwrap_or(&0.),
+                *suzanne[0].mesh.vertex_color.get(i * 3 + 1).unwrap_or(&0.),
+                *suzanne[0].mesh.vertex_color.get(i * 3 + 2).unwrap_or(&0.),
+                1.,
+            ],
+        })
+        .collect();
 
-    let tris = (0..(suzanne[0].mesh.indices.len()/3)).into_iter()
-        .map(|i|{
-            [
-                suzanne[0].mesh.indices[i*3] as usize,
-                suzanne[0].mesh.indices[i*3+1] as usize,
-                suzanne[0].mesh.indices[i*3+2] as usize,
-            ]
-        }).collect();
+    let indices = (0..(suzanne[0].mesh.indices.len()))
+        .into_iter()
+        .map(|i| suzanne[0].mesh.indices[i] as u32)
+        .collect();
 
-    let mesh = Mesh{
-        verts,
-        tris,
-    };
+    let mesh = Mesh { verts, indices };
 
     let bvh = GlslBVH::build_buckets_16(
-        mesh.tris
-            .iter()
-            .enumerate()
-            .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
+        (0..mesh.indices.len() / 3)
+            .into_iter()
+            .map(|i| IndexedAABB{ index: i * 3, aabb: mesh.get_tri(i * 3).into()}),
     );
-    bvh.print_rec(0, &mut String::from(""));
-}
+    //bvh.print_rec(0, &mut String::from(""));
 
+    let mut gpu = GPUContextBuilder::new()
+        .set_features_util()
+        .set_limits(wgpu::Limits{
+            max_push_constant_size: 128,
+            ..Default::default()
+        }).build();
+
+    gpu.encode_img([800, 600], |gpu, view, encoder|{
+
+    });
+}
