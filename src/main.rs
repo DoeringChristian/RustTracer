@@ -170,11 +170,13 @@ fn main() {
 
     let img = TextureBuilder::new()
         .usage(wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_SRC)
+        .format(wgpu::TextureFormat::Rgba8Unorm)
+        .clear([10, 10])
         .build(&gpu.device, &gpu.queue);
 
     let dst_img = DstImage{
         view: img.view_default(),
-    }.into_bound(&gpu.device);
+    }.into_bound_with(&gpu.device, &trace_ppl.get_bind_group_layout(0));
 
     gpu.encode(|gpu, encoder|{
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor{
@@ -185,8 +187,8 @@ fn main() {
             &mut cpass,
             ComputeData{
                 bind_groups: vec![
-                    (&mesh).into(),
                     (&dst_img).into(),
+                    (&mesh).into(),
                 ],
                 ..Default::default()
             },

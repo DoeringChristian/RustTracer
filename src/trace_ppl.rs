@@ -82,7 +82,14 @@ impl BindGroupLayout for DstImage{
             entries: &[
                 wgpu::BindGroupLayoutEntry{
                     binding: 0,
-                    ..glsl::image2D_entry(wgpu::TextureFormat::Rgba8Unorm, wgpu::StorageTextureAccess::WriteOnly)
+                    visibility: wgpu::ShaderStages::all(),
+                    count: None,
+                    ty: wgpu::BindingType::StorageTexture{
+                        access: wgpu::StorageTextureAccess::WriteOnly,
+                        format: wgpu::TextureFormat::Rgba8Unorm,
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                    }
+                    //..glsl::image2D_entry(wgpu::TextureFormat::Rgba8Unorm, wgpu::StorageTextureAccess::WriteOnly)
                 }
             ]
         })
