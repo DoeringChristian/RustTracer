@@ -3,7 +3,7 @@ use crate::bvh::*;
 use crate::aabb::*;
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct GlslBVHNode {
     pub min: [f32; 4],
     pub max: [f32; 4],

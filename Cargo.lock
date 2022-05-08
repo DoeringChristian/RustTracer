@@ -554,7 +554,6 @@ dependencies = [
 [[package]]
 name = "ewgpu"
 version = "0.1.0"
-source = "git+https://github.com/DoeringChristian/ewgpu?branch=pipeline#ed410bea27bda221171834138215e71709136558"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -581,7 +580,6 @@ dependencies = [
 [[package]]
 name = "ewgpu_macros"
 version = "0.1.0"
-source = "git+https://github.com/DoeringChristian/ewgpu?branch=pipeline#ed410bea27bda221171834138215e71709136558"
 dependencies = [
  "proc-macro2",
  "quote",

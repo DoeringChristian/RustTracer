@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 tobj = "*"
 time-test = "*"
-ewgpu = {git = "https://github.com/DoeringChristian/ewgpu", branch = "pipeline"}
+ewgpu = {path = "../wgpu_utils/"}
 winit = "0.26"
 wgpu = "*"
 env_logger = "0.9"

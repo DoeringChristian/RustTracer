@@ -356,6 +356,10 @@ impl<Node: BVHNode> BVH<Node> {
     pub fn aabb(&self) -> AABB{
         self.aabb
     }
+
+    pub fn nodes(&self) -> &[Node]{
+        &self.nodes
+    }
 }
 impl<Node: BVHNode + std::fmt::Debug> BVH<Node> {
     pub fn print_rec(&self, index: usize, indent_string: &mut String) {
