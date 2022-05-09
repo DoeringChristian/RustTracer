@@ -176,7 +176,7 @@ fn main() {
 
     let dst_img = DstImage{
         view: img.view_default(),
-    }.into_bound_with(&gpu.device, &trace_ppl.get_bind_group_layout(0));
+    }.into_bound(&gpu.device);
 
     gpu.encode(|gpu, encoder|{
         let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor{
@@ -187,8 +187,8 @@ fn main() {
             &mut cpass,
             ComputeData{
                 bind_groups: vec![
-                    (&dst_img).into(),
                     (&mesh).into(),
+                    (&dst_img).into(),
                 ],
                 ..Default::default()
             },

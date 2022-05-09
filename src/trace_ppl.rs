@@ -4,7 +4,18 @@ use crate::*;
 #[derive(DerefMut)]
 pub struct TracePipeline(wgpu::ComputePipeline);
 
-impl PipelineLayout for TracePipeline{}
+impl PipelineLayout for TracePipeline{
+    fn layout(device: &wgpu::Device) -> Option<wgpu::PipelineLayout> {
+        Some(device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("TracePipeline Layout"),
+            bind_group_layouts: &[
+                &TraceMesh::bind_group_layout(device),
+                &DstImage::bind_group_layout(device),
+            ],
+            push_constant_ranges: &[]
+        }))
+    }
+}
 
 impl TracePipeline{
     pub fn load(device: &wgpu::Device) -> Self{
@@ -55,15 +66,15 @@ impl BindGroupLayout for TraceMesh{
             entries: &[
                 wgpu::BindGroupLayoutEntry{
                     binding: 0,
-                    ..wgsl::buffer_entry(true)
+                    ..glsl::buffer_entry(true)
                 },
                 wgpu::BindGroupLayoutEntry{
                     binding: 1,
-                    ..wgsl::buffer_entry(true)
+                    ..glsl::buffer_entry(true)
                 },
                 wgpu::BindGroupLayoutEntry{
                     binding: 2,
-                    ..wgsl::buffer_entry(true)
+                    ..glsl::buffer_entry(true)
                 },
             ]
         })
