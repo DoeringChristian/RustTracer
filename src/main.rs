@@ -1,4 +1,5 @@
 use std::ops::Range;
+use screen_13::prelude_arc::*;
 
 mod aabb;
 mod bvh;
@@ -8,6 +9,8 @@ mod trace_ppl;
 use aabb::*;
 use bvh::*;
 use glsl_bvh::*;
+use screen_13_fx::prelude_arc::*;
+use trace_ppl::*;
 
 pub trait Pos3 {
     fn pos3(&self) -> [f32; 3];
@@ -152,5 +155,88 @@ fn main() {
             .into_iter()
             .map(|i| IndexedAABB{ index: i * 3, aabb: mesh.get_tri(i * 3).into()}),
     );
-    //bvh.print_rec(0, &mut String::from(""));
+
+
+
+
+
+
+
+    let mut screen_13 = EventLoop::new().build().unwrap();
+    let mut presenter = ComputePresenter::new(&screen_13.device).unwrap();
+    let mut cache = HashPool::new(&screen_13.device);
+
+    let cppl = screen_13.new_compute_pipeline(ComputePipelineInfo::new(
+        inline_spirv::include_spirv!("src/shaders/trace.glsl", comp).as_slice(),
+    ));
+
+    let mut index_buffer = Some(BufferLeaseBinding({
+        let mut buf = cache.lease(BufferInfo::new_mappable(
+                (std::mem::size_of::<u32>() * mesh.indices.len()) as u64,
+                vk::BufferUsageFlags::STORAGE_BUFFER,
+        )).expect("Could not create Index Buffer");
+        println!("{}", buf.as_ref().info().size);
+        Buffer::copy_from_slice(
+            buf.get_mut().expect("Could not get Index Buffer"),
+            0,
+            bytemuck::cast_slice(&mesh.indices),
+        );
+        buf
+    }));
+    let mut vertex_buffer = Some(BufferLeaseBinding({
+        let mut buf = cache.lease(BufferInfo::new_mappable(
+                (std::mem::size_of::<Vert>() * mesh.verts.len()) as u64,
+                vk::BufferUsageFlags::STORAGE_BUFFER,
+        )).unwrap();
+        Buffer::copy_from_slice(
+            buf.get_mut().unwrap(),
+            0,
+            bytemuck::cast_slice(&mesh.verts),
+        );
+        buf
+    }));
+    let mut bvh_buffer = Some(BufferLeaseBinding({
+        let mut buf = cache.lease(BufferInfo::new_mappable(
+                (std::mem::size_of::<GlslBVHNode>() * bvh.nodes().len()) as u64,
+                vk::BufferUsageFlags::STORAGE_BUFFER,
+        )).unwrap();
+        Buffer::copy_from_slice(
+            buf.get_mut().unwrap(),
+            0,
+            bytemuck::cast_slice(bvh.nodes()),
+        );
+        buf
+    }));
+
+    let mut image = Some(screen_13.new_image(ImageInfo::new_2d(
+                vk::Format::R8G8B8A8_UNORM,
+                100,
+                100,
+                vk::ImageUsageFlags::STORAGE,
+    )));
+
+    screen_13.run(|frame|{
+        let mut render_graph = frame.render_graph;
+
+        let image_node = render_graph.bind_node(image.take().unwrap());
+        let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
+        let index_node = render_graph.bind_node(index_buffer.take().unwrap());
+        let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
+
+        render_graph
+            .begin_pass("Tracer Pass")
+            .bind_pipeline(&cppl)
+            .access_descriptor((0, 0), bvh_node, AccessType::ComputeShaderReadOther)
+            .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
+            .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
+            .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
+            .record_compute(move |c| {
+                c.dispatch(100, 100, 1);
+            });
+
+        presenter.present_image(&mut render_graph, image_node, frame.swapchain_image);
+
+        image = Some(render_graph.unbind_node(image_node));
+
+    }).unwrap();
 }

@@ -141,6 +141,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
 
 [[package]]
+name = "bmfont"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7464c178da64eeda8bdc1e70378593cba8e37a00a3846d593088db7a590ee3a3"
+
+[[package]]
 name = "bumpalo"
 version = "3.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -150,11 +156,13 @@ checksum = "a4a45a46ab1f2412e53d3a0ade76ffad2025804294569aae387231a0cd6e0899"
 name = "bvh01"
 version = "0.1.0"
 dependencies = [
+ "archery",
  "bytemuck",
  "gpu-allocator",
  "inline-spirv",
  "pretty_env_logger",
  "screen-13",
+ "screen-13-fx",
  "time-test",
  "tobj",
  "winit",
@@ -165,6 +173,20 @@ name = "bytemuck"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdead85bdec19c194affaeeb670c0e41fe23de31459efd1c174d049269cf02cc"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "562e382481975bc61d11275ac5e62a19abd00b0547d99516a415336f183dcd0e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "byteorder"
@@ -500,6 +522,12 @@ name = "gimli"
 version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78cc372d058dcf6d5ecd98510e7fbc9e5aec4d21de70f65fea8fecebcd881bd4"
+
+[[package]]
+name = "glam"
+version = "0.20.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f43e957e744be03f5801a55472f593d43fabdebf25a4585db250f04d86b1675f"
 
 [[package]]
 name = "gpu-allocator"
@@ -1122,6 +1150,22 @@ dependencies = [
  "spirq",
  "vk-sync-fork",
  "winit",
+]
+
+[[package]]
+name = "screen-13-fx"
+version = "0.1.0"
+source = "git+https://github.com/attackgoat/screen-13.git#ea1291b64708538c84bbdc030121f2dbbb9638b6"
+dependencies = [
+ "anyhow",
+ "archery",
+ "bmfont",
+ "bytemuck",
+ "glam",
+ "inline-spirv",
+ "lazy_static",
+ "parking_lot 0.12.0",
+ "screen-13",
 ]
 
 [[package]]

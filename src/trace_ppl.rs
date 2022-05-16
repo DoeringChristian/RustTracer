@@ -1,118 +1,107 @@
-use std::{borrow::Cow, collections::HashMap};
+use archery::*;
+use screen_13::prelude_arc::*;
+use super::*;
 
-use ewgpu::*;
-use crate::*;
-
-#[derive(DerefMut)]
-pub struct TracePipeline(wgpu::ComputePipeline);
-
-impl PipelineLayout for TracePipeline{
-    fn layout(device: &wgpu::Device) -> Option<wgpu::PipelineLayout> {
-        Some(device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("TracePipeline Layout"),
-            bind_group_layouts: &[
-                &TraceMesh::bind_group_layout(device),
-                &DstImage::bind_group_layout(device),
-            ],
-            push_constant_ranges: &[]
-        }))
-    }
+pub struct TracerExtent {
+    pub width: u32,
+    pub height: u32,
+    pub ppp: u32,
 }
 
-impl TracePipeline{
-    pub fn load(device: &wgpu::Device) -> Self{
-        //let shader = Shader::load(device, &std::path::Path::new("src/shaders/trace.glsl"), wgpu::ShaderStages::COMPUTE, None).unwrap();
-        
-        let shader = ComputeShader::from_src_glsl(device, include_str!("shaders/trace.glsl"), None).unwrap();
-        /*
-        let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor{
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::from(include_str!("shaders/trace.wgsl"))),
-        });
-        */
-        let cppl = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor{
-            label: Some("TracePipeline"),
-            layout: None,
-            module: &shader,
-            entry_point: "main",
-            //..shader.compute_pipeline_desc()
-        });
-
-        Self(cppl)
-    }
+pub struct Tracer {
+    pub cppl: SharedPointer<ComputePipeline, ArcK>,
+    pub cache: HashPool,
+    pub index_buffer: Option<BufferLeaseBinding<ArcK>>,
+    pub vertex_buffer: Option<BufferLeaseBinding<ArcK>>,
+    pub bvh_buffer: Option<BufferLeaseBinding<ArcK>>,
 }
 
-#[derive(BindGroupContent)]
-pub struct TraceMesh{
-    nodes: Buffer<GlslBVHNode>,
-    verts: Buffer<Vert>,
-    indices: Buffer<u32>,
-}
+impl Tracer {
+    pub fn new(screen_13: &mut EventLoop) -> Self {
+        let cppl = screen_13.new_compute_pipeline(ComputePipelineInfo::new(
+            inline_spirv::include_spirv!("src/shaders/trace.glsl", comp).as_slice(),
+        ));
 
-impl TraceMesh{
-    pub fn new(device: &wgpu::Device, nodes: &[GlslBVHNode], verts: &[Vert], indices: &[u32]) -> Self{
-        let nodes = BufferBuilder::new()
-            .storage()
-            .build(device, nodes);
-        let verts = BufferBuilder::new()
-            .storage()
-            .build(device, verts);
-        let indices = BufferBuilder::new()
-            .storage()
-            .build(device, indices);
+        let cache = HashPool::new(&screen_13.device);
 
-        Self{
-            nodes,
-            verts,
-            indices,
+        Self { 
+            cppl ,
+            cache,
+            index_buffer: None,
+            vertex_buffer: None,
+            bvh_buffer: None,
         }
     }
-}
 
-impl BindGroupLayout for TraceMesh{
-    fn bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor{
-            label: Some("TraceMesh BindGroupLayout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry{
-                    binding: 0,
-                    ..glsl::buffer_entry(true)
-                },
-                wgpu::BindGroupLayoutEntry{
-                    binding: 1,
-                    ..glsl::buffer_entry(true)
-                },
-                wgpu::BindGroupLayoutEntry{
-                    binding: 2,
-                    ..glsl::buffer_entry(true)
-                },
-            ]
-        })
+    pub fn fill_buffers(
+        &mut self,
+        indices: &[u32],
+        vertices: &[Vert],
+        bvh: &[GlslBVHNode],
+    ){
+        self.index_buffer = Some(BufferLeaseBinding({
+            let mut buf = self.cache.lease(BufferInfo::new_mappable(
+                    (std::mem::size_of::<u32>() * indices.len()) as u64,
+                    vk::BufferUsageFlags::STORAGE_BUFFER,
+            )).expect("Could not create Index Buffer");
+            Buffer::copy_from_slice(
+                buf.get_mut().expect("Could not get Index Buffer"),
+                0,
+                bytemuck::cast_slice(indices),
+            );
+            buf
+        }));
+        self.vertex_buffer = Some(BufferLeaseBinding({
+            let mut buf = self.cache.lease(BufferInfo::new_mappable(
+                    (std::mem::size_of::<Vert>() * vertices.len()) as u64,
+                    vk::BufferUsageFlags::STORAGE_BUFFER,
+            )).unwrap();
+            Buffer::copy_from_slice(
+                buf.get_mut().unwrap(),
+                0,
+                bytemuck::cast_slice(vertices),
+            );
+            buf
+        }));
+        self.bvh_buffer = Some(BufferLeaseBinding({
+            let mut buf = self.cache.lease(BufferInfo::new_mappable(
+                    (std::mem::size_of::<GlslBVHNode>() * bvh.len()) as u64,
+                    vk::BufferUsageFlags::STORAGE_BUFFER,
+            )).unwrap();
+            Buffer::copy_from_slice(
+                buf.get_mut().unwrap(),
+                0,
+                bytemuck::cast_slice(bvh),
+            );
+            buf
+        }));
     }
-}
 
-#[derive(BindGroupContent)]
-pub struct DstImage{
-    pub view: wgpu::TextureView,
-}
+    pub fn record(
+        &mut self, 
+        graph: &mut RenderGraph, 
+        dst: impl Into<AnyImageNode>,
+        extent: TracerExtent,
+    ) {
+        //println!("{:?}", self.index_buffer.take().unwrap());
+        let index_node = graph.bind_node(self.index_buffer.take().unwrap());
+        let vertex_node = graph.bind_node(self.vertex_buffer.take().unwrap());
+        let bvh_node = graph.bind_node(self.bvh_buffer.take().unwrap());
 
-impl BindGroupLayout for DstImage{
-    fn bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor{
-            label: Some("Trace DstImage BindGroupLayout"),
-            entries: &[
-                wgpu::BindGroupLayoutEntry{
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::all(),
-                    count: None,
-                    ty: wgpu::BindingType::StorageTexture{
-                        access: wgpu::StorageTextureAccess::WriteOnly,
-                        format: wgpu::TextureFormat::Rgba8Unorm,
-                        view_dimension: wgpu::TextureViewDimension::D2,
-                    }
-                    //..glsl::image2D_entry(wgpu::TextureFormat::Rgba8Unorm, wgpu::StorageTextureAccess::WriteOnly)
-                }
-            ]
-        })
+        graph
+            .begin_pass("Tracer Pass")
+            .bind_pipeline(&self.cppl)
+            //.access_descriptor((0, [0, 1, 2]), &[bvh_buffer.into(), vertex_buffer.into(), index_buffer.into()], AccessType::ComputeShaderReadOther);
+            .access_descriptor((0, 0), bvh_node, AccessType::ComputeShaderReadOther)
+            .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
+            .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
+            .access_descriptor((1, 0), dst.into(), AccessType::ComputeShaderWrite)
+            .record_compute(move |c| {
+                c.dispatch(extent.width, extent.height, extent.ppp);
+            });
+
+        graph.unbind_node(index_node);
+        graph.unbind_node(vertex_node);
+        graph.unbind_node(bvh_node);
     }
 }
