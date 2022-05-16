@@ -8,15 +8,10 @@ edition = "2021"
 [dependencies]
 tobj = "*"
 time-test = "*"
-ewgpu = {path = "../wgpu_utils/"}
 winit = "0.26"
-wgpu = "*"
-env_logger = "0.9"
-imgui = "*"
-imgui-wgpu = "*"
-bytemuck = "*"
-shaderc = "*"
-nalgebra-glm = "*"
-nalgebra = "*"
-autodefault = "*"
-naga = "*"
+screen-13 = {git = "https://github.com/attackgoat/screen-13.git"}
+gpu-allocator = { git = "https://github.com/Traverse-Research/gpu-allocator.git", branch = "ash-0.37" } # https://github.com/Traverse-Research/gpu-allocator/pull/104
+#raw-window-handle = "0.4"
+bytemuck = "1.9"
+inline-spirv = "0.1"
+pretty_env_logger = "0.4"

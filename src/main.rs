@@ -8,8 +8,6 @@ mod trace_ppl;
 use aabb::*;
 use bvh::*;
 use glsl_bvh::*;
-use ewgpu::*;
-use trace_ppl::*;
 
 pub trait Pos3 {
     fn pos3(&self) -> [f32; 3];
@@ -155,46 +153,4 @@ fn main() {
             .map(|i| IndexedAABB{ index: i * 3, aabb: mesh.get_tri(i * 3).into()}),
     );
     //bvh.print_rec(0, &mut String::from(""));
-
-    let mut gpu = GPUContextBuilder::new()
-        .set_features_util()
-        .enable_feature(wgpu::Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING)
-        .set_limits(wgpu::Limits{
-            max_push_constant_size: 128,
-            ..Default::default()
-        }).build();
-
-    let trace_ppl = TracePipeline::load(&gpu.device);
-
-    let mesh = TraceMesh::new(&gpu.device, bvh.nodes(), &mesh.verts, &mesh.indices).into_bound(&gpu.device);
-
-    let img = TextureBuilder::new()
-        .usage(wgpu::TextureUsages::STORAGE_BINDING | wgpu::TextureUsages::COPY_SRC)
-        .format(wgpu::TextureFormat::Rgba8Unorm)
-        .clear([10, 10])
-        .build(&gpu.device, &gpu.queue);
-
-    let dst_img = DstImage{
-        view: img.view_default(),
-    }.into_bound(&gpu.device);
-
-    gpu.encode(|gpu, encoder|{
-        let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor{
-            label: None,
-        });
-
-        trace_ppl.dispatch(
-            &mut cpass,
-            ComputeData{
-                bind_groups: vec![
-                    (&mesh).into(),
-                    (&dst_img).into(),
-                ],
-                ..Default::default()
-            },
-            [1, 1, 1],
-        );
-    });
-
-    img.slice(.., .., ..).to_image(&gpu.device).save("out.png").unwrap();
 }
