@@ -25,9 +25,18 @@ layout(set = 0, binding = 2) buffer Indices{
 
 layout(set = 1, binding = 0, rgba8) writeonly uniform image2D dst;
 
+float rand2(vec2 co){
+    highp float a = 12.9898;
+    highp float b = 78.233;
+    highp float c = 43758.5453;
+    highp float dt= dot(co.xy ,vec2(a,b));
+    highp float sn= mod(dt,3.14);
+    return fract(sin(sn) * c);
+}
+
 void main(){
     uint x = gl_GlobalInvocationID.x;
     uint y = gl_GlobalInvocationID.y;
 
-    imageStore(dst, ivec2(x, y), vec4(1.0, 0.0, 0.0, 1.0));
+    imageStore(dst, ivec2(x, y), vec4(rand2(vec2(float(x), float(y))), 0.0, 0.0, 1.0));
 }
