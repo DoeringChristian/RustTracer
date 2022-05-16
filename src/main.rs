@@ -237,6 +237,9 @@ fn main() {
         presenter.present_image(&mut render_graph, image_node, frame.swapchain_image);
 
         image = Some(render_graph.unbind_node(image_node));
+        index_buffer = Some(render_graph.unbind_node(index_node));
+        vertex_buffer = Some(render_graph.unbind_node(vertex_node));
+        bvh_buffer = Some(render_graph.unbind_node(bvh_node));
 
     }).unwrap();
 }
