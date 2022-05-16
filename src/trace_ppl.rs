@@ -1,3 +1,5 @@
+use std::{borrow::Cow, collections::HashMap};
+
 use ewgpu::*;
 use crate::*;
 
@@ -20,12 +22,20 @@ impl PipelineLayout for TracePipeline{
 impl TracePipeline{
     pub fn load(device: &wgpu::Device) -> Self{
         //let shader = Shader::load(device, &std::path::Path::new("src/shaders/trace.glsl"), wgpu::ShaderStages::COMPUTE, None).unwrap();
-
+        
         let shader = ComputeShader::from_src_glsl(device, include_str!("shaders/trace.glsl"), None).unwrap();
+        /*
+        let shader = device.create_shader_module(&wgpu::ShaderModuleDescriptor{
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::from(include_str!("shaders/trace.wgsl"))),
+        });
+        */
         let cppl = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor{
             label: Some("TracePipeline"),
             layout: None,
-            ..shader.compute_pipeline_desc()
+            module: &shader,
+            entry_point: "main",
+            //..shader.compute_pipeline_desc()
         });
 
         Self(cppl)

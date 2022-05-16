@@ -144,6 +144,7 @@ dependencies = [
  "ewgpu",
  "imgui",
  "imgui-wgpu",
+ "naga",
  "nalgebra",
  "nalgebra-glm",
  "shaderc",

@@ -1,4 +1,4 @@
-#version 460
+#version 450
 //#extension GL_EXT_nonunifomr_qualifier: require
 #if COMPUTE_SHADER
 
@@ -28,7 +28,7 @@ layout(set = 0, binding = 2) buffer Indices{
 layout(set = 1, binding = 0, rgba8) writeonly uniform image2D dst;
 
 void main(){
-    //imageStore(dst, ivec2(1, 1), vec4(1., 0., 0., 1.));
+    imageStore(dst, ivec2(1, 1), vec4(1.0, 0.0, 0.0, 1.0));
 }
 
 #endif
