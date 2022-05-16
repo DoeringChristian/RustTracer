@@ -26,5 +26,8 @@ layout(set = 0, binding = 2) buffer Indices{
 layout(set = 1, binding = 0, rgba8) writeonly uniform image2D dst;
 
 void main(){
-    imageStore(dst, ivec2(1, 1), vec4(1.0, 0.0, 0.0, 1.0));
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+
+    imageStore(dst, ivec2(x, y), vec4(1.0, 0.0, 0.0, 1.0));
 }

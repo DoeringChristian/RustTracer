@@ -1,14 +1,16 @@
-use std::ops::Range;
 use screen_13::prelude_arc::*;
+use std::ops::Range;
 
 mod aabb;
 mod bvh;
 mod glsl_bvh;
+mod presenter;
 mod trace_ppl;
 
 use aabb::*;
 use bvh::*;
 use glsl_bvh::*;
+use presenter::*;
 use screen_13_fx::prelude_arc::*;
 use trace_ppl::*;
 
@@ -117,7 +119,10 @@ fn main() {
     let bvh = GlslBVH::build_sweep(
         (0..mesh.indices.len() / 3)
             .into_iter()
-            .map(|i| IndexedAABB{ index: i * 3, aabb: mesh.get_tri(i * 3).into()}),
+            .map(|i| IndexedAABB {
+                index: i * 3,
+                aabb: mesh.get_tri(i * 3).into(),
+            }),
     );
     bvh.print_rec(0, &mut String::from(""));
 
@@ -150,20 +155,19 @@ fn main() {
 
     let mesh = Mesh { verts, indices };
 
-    let bvh = GlslBVH::build_buckets_16(
-        (0..mesh.indices.len() / 3)
-            .into_iter()
-            .map(|i| IndexedAABB{ index: i * 3, aabb: mesh.get_tri(i * 3).into()}),
-    );
-
-
-
-
-
-
+    let bvh =
+        GlslBVH::build_buckets_16(
+            (0..mesh.indices.len() / 3)
+                .into_iter()
+                .map(|i| IndexedAABB {
+                    index: i * 3,
+                    aabb: mesh.get_tri(i * 3).into(),
+                }),
+        );
 
     let mut screen_13 = EventLoop::new().build().unwrap();
-    let mut presenter = ComputePresenter::new(&screen_13.device).unwrap();
+    //let mut presenter = GraphicPresenter::new(&screen_13.device).unwrap();
+    let mut presenter = Presenter::new(&screen_13.device);
     let mut cache = HashPool::new(&screen_13.device);
 
     let cppl = screen_13.new_compute_pipeline(ComputePipelineInfo::new(
@@ -171,10 +175,12 @@ fn main() {
     ));
 
     let mut index_buffer = Some(BufferLeaseBinding({
-        let mut buf = cache.lease(BufferInfo::new_mappable(
+        let mut buf = cache
+            .lease(BufferInfo::new_mappable(
                 (std::mem::size_of::<u32>() * mesh.indices.len()) as u64,
                 vk::BufferUsageFlags::STORAGE_BUFFER,
-        )).expect("Could not create Index Buffer");
+            ))
+            .expect("Could not create Index Buffer");
         println!("{}", buf.as_ref().info().size);
         Buffer::copy_from_slice(
             buf.get_mut().expect("Could not get Index Buffer"),
@@ -184,62 +190,67 @@ fn main() {
         buf
     }));
     let mut vertex_buffer = Some(BufferLeaseBinding({
-        let mut buf = cache.lease(BufferInfo::new_mappable(
+        let mut buf = cache
+            .lease(BufferInfo::new_mappable(
                 (std::mem::size_of::<Vert>() * mesh.verts.len()) as u64,
                 vk::BufferUsageFlags::STORAGE_BUFFER,
-        )).unwrap();
-        Buffer::copy_from_slice(
-            buf.get_mut().unwrap(),
-            0,
-            bytemuck::cast_slice(&mesh.verts),
-        );
+            ))
+            .unwrap();
+        Buffer::copy_from_slice(buf.get_mut().unwrap(), 0, bytemuck::cast_slice(&mesh.verts));
         buf
     }));
     let mut bvh_buffer = Some(BufferLeaseBinding({
-        let mut buf = cache.lease(BufferInfo::new_mappable(
+        let mut buf = cache
+            .lease(BufferInfo::new_mappable(
                 (std::mem::size_of::<GlslBVHNode>() * bvh.nodes().len()) as u64,
                 vk::BufferUsageFlags::STORAGE_BUFFER,
-        )).unwrap();
-        Buffer::copy_from_slice(
-            buf.get_mut().unwrap(),
-            0,
-            bytemuck::cast_slice(bvh.nodes()),
-        );
+            ))
+            .unwrap();
+        Buffer::copy_from_slice(buf.get_mut().unwrap(), 0, bytemuck::cast_slice(bvh.nodes()));
         buf
     }));
 
     let mut image = Some(screen_13.new_image(ImageInfo::new_2d(
-                vk::Format::R8G8B8A8_UNORM,
-                100,
-                100,
-                vk::ImageUsageFlags::STORAGE,
+        vk::Format::R8G8B8A8_UNORM,
+        100,
+        100,
+        vk::ImageUsageFlags::STORAGE,
     )));
 
-    screen_13.run(|frame|{
-        let mut render_graph = frame.render_graph;
+    screen_13
+        .run(|frame| {
+            let mut render_graph = frame.render_graph;
 
-        let image_node = render_graph.bind_node(image.take().unwrap());
-        let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
-        let index_node = render_graph.bind_node(index_buffer.take().unwrap());
-        let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
+            let image_node = render_graph.bind_node(image.take().unwrap());
+            let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
+            let index_node = render_graph.bind_node(index_buffer.take().unwrap());
+            let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
 
-        render_graph
-            .begin_pass("Tracer Pass")
-            .bind_pipeline(&cppl)
-            .access_descriptor((0, 0), bvh_node, AccessType::ComputeShaderReadOther)
-            .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
-            .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
-            .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
-            .record_compute(move |c| {
-                c.dispatch(100, 100, 1);
-            });
+            render_graph
+                .begin_pass("Tracer Pass")
+                .bind_pipeline(&cppl)
+                .access_descriptor((0, 0), bvh_node, AccessType::ComputeShaderReadOther)
+                .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
+                .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
+                .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
+                .record_compute(move |c| {
+                    c.dispatch(10, 10, 1);
+                });
 
-        presenter.present_image(&mut render_graph, image_node, frame.swapchain_image);
+            presenter.present(
+                &mut render_graph,
+                image_node,
+                frame.swapchain_image,
+                [
+                    frame.window.inner_size().width,
+                    frame.window.inner_size().height,
+                ],
+            );
 
-        image = Some(render_graph.unbind_node(image_node));
-        index_buffer = Some(render_graph.unbind_node(index_node));
-        vertex_buffer = Some(render_graph.unbind_node(vertex_node));
-        bvh_buffer = Some(render_graph.unbind_node(bvh_node));
-
-    }).unwrap();
+            image = Some(render_graph.unbind_node(image_node));
+            index_buffer = Some(render_graph.unbind_node(index_node));
+            vertex_buffer = Some(render_graph.unbind_node(vertex_node));
+            bvh_buffer = Some(render_graph.unbind_node(bvh_node));
+        })
+        .unwrap();
 }
