@@ -165,9 +165,18 @@ fn main() {
                 }),
         );
 
-    let mut screen_13 = EventLoop::new().build().unwrap();
+
+
+
+
+    // ===========
+    //  Rendering
+    // ===========
+
+
+    let screen_13 = EventLoop::new().build().unwrap();
     //let mut presenter = GraphicPresenter::new(&screen_13.device).unwrap();
-    let mut presenter = Presenter::new(&screen_13.device);
+    let presenter = Presenter::new(&screen_13.device);
     let mut cache = HashPool::new(&screen_13.device);
 
     let cppl = screen_13.new_compute_pipeline(ComputePipelineInfo::new(
@@ -234,7 +243,7 @@ fn main() {
                 .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
                 .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
                 .record_compute(move |c| {
-                    c.dispatch(10, 10, 1);
+                    c.dispatch(100, 100, 1);
                 });
 
             presenter.present(

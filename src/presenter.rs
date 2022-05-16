@@ -78,8 +78,6 @@ impl Presenter {
         swapchain: SwapchainImageNode<ArcK>,
         size: [u32; 2],
     ) {
-        let swapchain_info = graph.node_info(swapchain);
-
         let image = image.into();
 
         let mut render_graph = graph
