@@ -1,6 +1,5 @@
 #version 450
 
-
 struct Vert{
     vec4 pos;
     vec4 color;
@@ -24,6 +23,7 @@ layout(set = 0, binding = 2) buffer Indices{
 };
 
 layout(set = 1, binding = 0, rgba8) writeonly uniform image2D dst;
+
 
 float rand2(vec2 co){
     highp float a = 12.9898;

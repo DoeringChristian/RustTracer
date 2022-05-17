@@ -84,6 +84,7 @@ impl Presenter {
         let mut render_graph = graph
             .begin_pass("Present Pass")
             .bind_pipeline(&self.rppl)
+            .read_node(image)
             .access_descriptor((0, 0), image, AccessType::FragmentShaderReadOther)
             .clear_color(0)
             .store_color(0, swapchain);

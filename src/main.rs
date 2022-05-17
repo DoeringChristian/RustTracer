@@ -221,16 +221,18 @@ fn main() {
         buf
     }));
 
+    let trace_extent = [100, 100, 1];
+
     let mut image = Some(screen_13.new_image(ImageInfo::new_2d(
         vk::Format::R8G8B8A8_UNORM,
-        100,
-        100,
+        trace_extent[0],
+        trace_extent[1],
         vk::ImageUsageFlags::STORAGE,
     )));
 
     let mut image_buffer = Some(BufferLeaseBinding({
         let mut buf = cache.lease(BufferInfo::new_mappable(
-                100 * 100 * 4,
+                (trace_extent[0] * trace_extent[1] * 4) as u64,
                 vk::BufferUsageFlags::TRANSFER_DST,
         )).unwrap();
         buf
@@ -255,7 +257,7 @@ fn main() {
                     .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
                     .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
                     .record_compute(move |c| {
-                        c.dispatch(100, 100, 1);
+                        c.dispatch(trace_extent[0], trace_extent[1], trace_extent[2]);
                     });
                 render_graph.copy_image_to_buffer(image_node, image_buffer_node);
 
@@ -275,10 +277,10 @@ fn main() {
                 bvh_buffer = Some(render_graph.unbind_node(bvh_node));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
             }
-            frame.exit();
+            //frame.exit();
         })
     .unwrap();
     let image_buffer_content = Buffer::mapped_slice_mut(image_buffer.as_mut().unwrap().get_mut().unwrap());
-    let img = image::ImageBuffer::<image::Rgba<u8>, _>::from_raw(100, 100, image_buffer_content).unwrap();
+    let img = image::ImageBuffer::<image::Rgba<u8>, _>::from_raw(trace_extent[0], trace_extent[1], image_buffer_content).unwrap();
     img.save("out.png");
 }
