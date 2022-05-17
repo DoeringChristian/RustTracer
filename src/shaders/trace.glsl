@@ -40,15 +40,40 @@ struct Ray{
     vec4 dir;
 };
 
-struct ClosestHitReturn{
+struct RayReturn{
     Ray ray;
     vec4 color;
 };
+
+RayReturn closest_hit(Vert hit, Ray ray, uint blas_id){
+    return RayReturn(ray, vec4(1., 0., 0., 1.));
+}
+
+vec4 miss(Ray ray){
+    return vec4(0., 1., 0., 1.);
+}
+
+bool intersects_aabb(Ray ray, vec4 min, vec4 max){
+
+}
+
+Vert intersection(Ray ray, uint blas_id, uint index_id){
+}
+
+bool anyhit(Vert hit, uint blas_id){
+    return true;
+}
 
 
 void main(){
     uint x = gl_GlobalInvocationID.x;
     uint y = gl_GlobalInvocationID.y;
+
+    // Start at root node.
+    uint blas_id = 0;
+    while(true){
+        break;
+    }
 
     imageStore(dst, ivec2(x, y), vec4(rand2(vec2(float(x), float(y))), 0.0, 0.0, 1.0));
     //imageStore(dst, ivec2(x, y), vec4(1., 0., 0., 1.));
