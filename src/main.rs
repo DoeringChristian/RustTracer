@@ -183,6 +183,8 @@ fn main() {
         inline_spirv::include_spirv!("src/shaders/trace.glsl", comp).as_slice(),
     ));
 
+    println!("test");
+
     let mut index_buffer = Some(BufferLeaseBinding({
         let mut buf = cache
             .lease(BufferInfo::new_mappable(
@@ -226,40 +228,57 @@ fn main() {
         vk::ImageUsageFlags::STORAGE,
     )));
 
+    let mut image_buffer = Some(BufferLeaseBinding({
+        let mut buf = cache.lease(BufferInfo::new_mappable(
+                100 * 100 * 4,
+                vk::BufferUsageFlags::TRANSFER_DST,
+        )).unwrap();
+        buf
+    }));
+
+
     screen_13
-        .run(|frame| {
-            let mut render_graph = frame.render_graph;
+        .run(|mut frame| {
+            let mut render_graph = &mut frame.render_graph;
+            {
+                let image_buffer_node = render_graph.bind_node(image_buffer.take().unwrap());
+                let image_node = render_graph.bind_node(image.take().unwrap());
+                let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
+                let index_node = render_graph.bind_node(index_buffer.take().unwrap());
+                let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
 
-            let image_node = render_graph.bind_node(image.take().unwrap());
-            let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
-            let index_node = render_graph.bind_node(index_buffer.take().unwrap());
-            let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
+                render_graph
+                    .begin_pass("Tracer Pass")
+                    .bind_pipeline(&cppl)
+                    .access_descriptor((0, 0), bvh_node, AccessType::ComputeShaderReadOther)
+                    .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
+                    .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
+                    .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
+                    .record_compute(move |c| {
+                        c.dispatch(100, 100, 1);
+                    });
+                render_graph.copy_image_to_buffer(image_node, image_buffer_node);
 
-            render_graph
-                .begin_pass("Tracer Pass")
-                .bind_pipeline(&cppl)
-                .access_descriptor((0, 0), bvh_node, AccessType::ComputeShaderReadOther)
-                .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
-                .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
-                .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
-                .record_compute(move |c| {
-                    c.dispatch(100, 100, 1);
-                });
-
-            presenter.present(
-                &mut render_graph,
-                image_node,
-                frame.swapchain_image,
-                [
+                presenter.present(
+                    &mut render_graph,
+                    image_node,
+                    frame.swapchain_image,
+                    [
                     frame.window.inner_size().width,
                     frame.window.inner_size().height,
-                ],
-            );
+                    ],
+                );
 
-            image = Some(render_graph.unbind_node(image_node));
-            index_buffer = Some(render_graph.unbind_node(index_node));
-            vertex_buffer = Some(render_graph.unbind_node(vertex_node));
-            bvh_buffer = Some(render_graph.unbind_node(bvh_node));
+                image = Some(render_graph.unbind_node(image_node));
+                index_buffer = Some(render_graph.unbind_node(index_node));
+                vertex_buffer = Some(render_graph.unbind_node(vertex_node));
+                bvh_buffer = Some(render_graph.unbind_node(bvh_node));
+                image_buffer = Some(render_graph.unbind_node(image_buffer_node));
+            }
+            frame.exit();
         })
-        .unwrap();
+    .unwrap();
+    let image_buffer_content = Buffer::mapped_slice_mut(image_buffer.as_mut().unwrap().get_mut().unwrap());
+    let img = image::ImageBuffer::<image::Rgba<u8>, _>::from_raw(100, 100, image_buffer_content).unwrap();
+    img.save("out.png");
 }

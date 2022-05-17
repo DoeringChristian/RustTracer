@@ -57,6 +57,7 @@ impl Presenter {
 
                             void main(){
                                 o_color = texture(tex_s, i_uv);
+                                //o_color = vec4(1., 0., 0., 1.);
                             }
                             "#,
                             frag

@@ -39,4 +39,5 @@ void main(){
     uint y = gl_GlobalInvocationID.y;
 
     imageStore(dst, ivec2(x, y), vec4(rand2(vec2(float(x), float(y))), 0.0, 0.0, 1.0));
+    //imageStore(dst, ivec2(x, y), vec4(1., 0., 0., 1.));
 }
