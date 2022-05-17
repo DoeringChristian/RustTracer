@@ -24,6 +24,7 @@ layout(set = 0, binding = 2) buffer Indices{
 
 layout(set = 1, binding = 0, rgba8) writeonly uniform image2D dst;
 
+const float PI = 3.14159265358979323846264338327950288;
 
 float rand2(vec2 co){
     highp float a = 12.9898;
@@ -33,6 +34,17 @@ float rand2(vec2 co){
     highp float sn= mod(dt,3.14);
     return fract(sin(sn) * c);
 }
+
+struct Ray{
+    vec4 pos;
+    vec4 dir;
+};
+
+struct ClosestHitReturn{
+    Ray ray;
+    vec4 color;
+};
+
 
 void main(){
     uint x = gl_GlobalInvocationID.x;
