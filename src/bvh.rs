@@ -1,7 +1,7 @@
 use crate::aabb::*;
 
 pub trait BVHNode {
-    type ExternIndex: Copy + Clone;
+    type ExternIndex: Copy + Clone + std::fmt::Debug;
     fn new_node(aabb: AABB, right: usize, miss: usize) -> Self;
     fn new_leaf(aabb: AABB, index: Self::ExternIndex, miss: usize) -> Self;
     fn set_right(&mut self, right: usize);
@@ -160,6 +160,7 @@ impl<Node: BVHNode> BVH<Node> {
         iter: I,
     ) -> Self {
         let mut children: Vec<IndexedAABB<Node::ExternIndex>> = iter.map(|x| x.into()).collect();
+        println!("children: {:?}", children);
         let aabb = children
             .iter()
             .map(|c| c.aabb)

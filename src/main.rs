@@ -19,7 +19,7 @@ pub trait Pos3 {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Vert {
     pub pos: [f32; 4],
     pub color: [f32; 4],
@@ -59,9 +59,9 @@ pub struct Mesh {
 impl Mesh {
     pub fn get_tri(&self, index: usize) -> [Vert; 3] {
         [
-            self.verts[self.indices[index] as usize],
-            self.verts[self.indices[index] as usize],
-            self.verts[self.indices[index] as usize],
+            self.verts[self.indices[index + 0] as usize],
+            self.verts[self.indices[index + 1] as usize],
+            self.verts[self.indices[index + 2] as usize],
         ]
     }
     pub fn get_for_tri(&self, indices: &[usize; 3]) -> [Vert; 3] {
@@ -76,56 +76,36 @@ impl Mesh {
 fn main() {
     let verts = vec![
         Vert {
-            pos: [0., 0., 0., 0.],
+            pos: [0., 0., 0., 1.],
             color: [0., 0., 0., 1.],
         },
         Vert {
-            pos: [1., 0., 0., 0.],
+            pos: [1., 0., 0., 1.],
             color: [0., 0., 0., 1.],
         },
         Vert {
-            pos: [1., 1., 0., 0.],
-            color: [0., 0., 0., 1.],
-        },
-        Vert {
-            pos: [2., 0., 0., 0.],
-            color: [0., 0., 0., 1.],
-        },
-        Vert {
-            pos: [3., 0., 0., 0.],
-            color: [0., 0., 0., 1.],
-        },
-        Vert {
-            pos: [3., 1., 0., 0.],
-            color: [0., 0., 0., 1.],
-        },
-        Vert {
-            pos: [2., 1., 0., 0.],
-            color: [0., 0., 0., 1.],
-        },
-        Vert {
-            pos: [3., 1., 0., 0.],
-            color: [0., 0., 0., 1.],
-        },
-        Vert {
-            pos: [3., 2., 0., 0.],
+            pos: [0., 1., 0., 1.],
             color: [0., 0., 0., 1.],
         },
     ];
-    let indices = vec![0, 1, 2, 3, 4, 5, 6, 7, 8];
+    let indices = vec![0, 1, 2];
 
     let mesh = Mesh { verts, indices };
 
-    let bvh = GlslBVH::build_sweep(
-        (0..mesh.indices.len() / 3)
-            .into_iter()
-            .map(|i| IndexedAABB {
-                index: i * 3,
-                aabb: mesh.get_tri(i * 3).into(),
-            }),
-    );
+    let bvh =
+        GlslBVH::build_buckets_16(
+            (0..mesh.indices.len() / 3)
+                .into_iter()
+                .map(|i| {
+                    IndexedAABB {
+                        index: i * 3,
+                        aabb: mesh.get_tri(i * 3).into(),
+                    }
+                }),
+        );
     bvh.print_rec(0, &mut String::from(""));
 
+    /*
     let suzanne = tobj::load_obj("src/assets/suzanne.obj", &tobj::LoadOptions::default())
         .unwrap()
         .0;
@@ -164,15 +144,11 @@ fn main() {
                     aabb: mesh.get_tri(i * 3).into(),
                 }),
         );
-
-
-
-
+    */
 
     // ===========
     //  Rendering
     // ===========
-
 
     let screen_13 = EventLoop::new().build().unwrap();
     //let mut presenter = GraphicPresenter::new(&screen_13.device).unwrap();
@@ -231,13 +207,14 @@ fn main() {
     )));
 
     let mut image_buffer = Some(BufferLeaseBinding({
-        let mut buf = cache.lease(BufferInfo::new_mappable(
+        let buf = cache
+            .lease(BufferInfo::new_mappable(
                 (trace_extent[0] * trace_extent[1] * 4) as u64,
                 vk::BufferUsageFlags::TRANSFER_DST,
-        )).unwrap();
+            ))
+            .unwrap();
         buf
     }));
-
 
     screen_13
         .run(|mut frame| {
@@ -266,8 +243,8 @@ fn main() {
                     image_node,
                     frame.swapchain_image,
                     [
-                    frame.window.inner_size().width,
-                    frame.window.inner_size().height,
+                        frame.window.inner_size().width,
+                        frame.window.inner_size().height,
                     ],
                 );
 
@@ -279,8 +256,14 @@ fn main() {
             }
             //frame.exit();
         })
+        .unwrap();
+    let image_buffer_content =
+        Buffer::mapped_slice_mut(image_buffer.as_mut().unwrap().get_mut().unwrap());
+    let img = image::ImageBuffer::<image::Rgba<u8>, _>::from_raw(
+        trace_extent[0],
+        trace_extent[1],
+        image_buffer_content,
+    )
     .unwrap();
-    let image_buffer_content = Buffer::mapped_slice_mut(image_buffer.as_mut().unwrap().get_mut().unwrap());
-    let img = image::ImageBuffer::<image::Rgba<u8>, _>::from_raw(trace_extent[0], trace_extent[1], image_buffer_content).unwrap();
     img.save("out.png");
 }
