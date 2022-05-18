@@ -124,8 +124,8 @@ Intersection intersection(Ray ray, uint blas_id, uint index_id){
 }
 
 RayPayload ray_gen(vec2 ss, uint ray_num){
-    ss = (ss * 2.)-vec2(1., 1.);
-    Ray ray = Ray(vec4(0., 2., 0., 1.), vec4(ss.x, -1., ss.y, 1.));
+    ss = (ss * 1.)-vec2(0.5, 0.5);
+    Ray ray = Ray(vec4(0., 3., 0., 1.), vec4(ss.x, -1., ss.y, 1.));
     return RayPayload(ray, vec4(0., 0., 0., 0.), 1.);
 }
 
@@ -145,7 +145,6 @@ void main(){
     RayPayload ray = ray_gen(vec2(float(x) / 100., float(y) / 100.), z);
     uint ray_num = 0;
     uint bvh_count = 0;
-    //RayPayload ray_ret = RayPayload(ray, vec4(0., 0., 0., 0.), 1.0);
 
     while(ray_num < RAY_COUNT){
         // Start at root node.
@@ -161,12 +160,10 @@ void main(){
                 else if(node.ty == TY_LEAF){
                     Intersection inter = intersection(ray.ray, blas_id, node.right);
                     if (inter.intersected && inter.uvt.z < closest_inter.uvt.z && anyhit(inter)){
-                        //imageStore(dst, ivec2(x, y), vec4(closest_inter.uvt.z, 0., 0., 1.));
                         closest_inter = inter;
                     }
                     // Break if we missed and the node is a right most node.
                     if (node.miss == 0){
-                        //imageStore(dst, ivec2(x, y), vec4(closest_inter.uvt.z, 0., 0., 1.));
                         break;
                     }
                     // Goto miss node either way. Because we don't know if ther could be a closer hit.
@@ -176,7 +173,6 @@ void main(){
             else{
                 // break if we have missed and the node is a right most node.
                 if (node.miss == 0){
-                    //imageStore(dst, ivec2(x, y), vec4(1., 0., 0., 1.));
                     break;
                 }
                 // If we missed the aabb with the ray we go to the miss node.
@@ -186,9 +182,7 @@ void main(){
             // TODO: add Safeguard for the case that blas_id >= blas_num.
             // This should not happen if the bvh has been generated corectly but a check would be good just in case.
         }
-        //imageStore(dst, ivec2(x, y), vec4(closest_inter.uvt.z, 0., 0., 1.));
         if (closest_inter.intersected == true){
-            //imageStore(dst, ivec2(x, y), vec4(closest_inter.uvt.z, 0., 0., 1.));
             ray = closest_hit(closest_inter.vert, ray, closest_inter.blas_id);
         }
         else{
@@ -200,6 +194,4 @@ void main(){
     }
 
     imageStore(dst, ivec2(x, y), vec4(ray.color));
-    //imageStore(dst, ivec2(x, y), vec4(rand2(vec2(float(x), float(y))), 0.0, 0.0, 1.0));
-    //imageStore(dst, ivec2(x, y), vec4(1., 0., 0., 1.));
 }
