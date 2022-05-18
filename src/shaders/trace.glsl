@@ -75,11 +75,12 @@ bool intersects_aabb(Ray ray, vec4 bmin, vec4 bmax){
 
 RayPayload closest_hit(Vert hit, RayPayload ray, uint blas_id){
 
-    return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
+    return RayPayload(ray.ray, vec4(1., 0., 0., 1.), 0.0);
+    //return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
 }
 
 RayPayload miss(RayPayload ray){
-    return RayPayload(ray.ray, ray.color + vec4(0., 1., 0., 1.) * ray.refl, ray.refl * 0.);
+    return RayPayload(ray.ray, vec4(0., 1., 0., 1.), 0.);
 }
 
 float mix2(float v0, float v1, float v2, float u, float v){
@@ -119,7 +120,7 @@ Intersection intersection(Ray ray, uint blas_id, uint index_id){
 }
 
 RayPayload ray_gen(vec2 ss, uint ray_num){
-    Ray ray = Ray(vec4(1., 0., 0., 1.), vec4(-1., 0., 0., 1.));
+    Ray ray = Ray(vec4(0., 0., 10., 1.), vec4(ss.x * 0.1, ss.y * 0.1, -1., 1.));
     return RayPayload(ray, vec4(0., 0., 0., 0.), 1.);
 }
 
@@ -127,6 +128,7 @@ bool anyhit(Intersection inter){
     return true;
 }
 
+const uint RAY_COUNT = 1;
 
 void main(){
     uint x = gl_GlobalInvocationID.x;
@@ -138,7 +140,7 @@ void main(){
     uint ray_num = 0;
     //RayPayload ray_ret = RayPayload(ray, vec4(0., 0., 0., 0.), 1.0);
 
-    while(ray_num < z){
+    while(ray_num < RAY_COUNT){
         // Start at root node.
         uint blas_id = 0;
         Intersection closest_inter = Intersection(vert_default, vec3(0., 0., 0.), 0, false);
