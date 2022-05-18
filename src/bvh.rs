@@ -101,7 +101,6 @@ impl<Node: BVHNode> BVH<Node> {
             dst.push(Node::new_leaf(p_aabb, children[0].index, pivot));
             dst.len() - 1
         } else {
-            //println!("{:?}", p_aabb);
             let mut min_sah = std::f32::MAX;
             let mut min_sah_idx = 0;
             let mut min_sah_l_aabb = children[0].aabb;
@@ -160,7 +159,6 @@ impl<Node: BVHNode> BVH<Node> {
         iter: I,
     ) -> Self {
         let mut children: Vec<IndexedAABB<Node::ExternIndex>> = iter.map(|x| x.into()).collect();
-        println!("children: {:?}", children);
         let aabb = children
             .iter()
             .map(|c| c.aabb)

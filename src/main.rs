@@ -105,7 +105,6 @@ fn main() {
         );
     bvh.print_rec(0, &mut String::from(""));
 
-    /*
     let suzanne = tobj::load_obj("src/assets/suzanne.obj", &tobj::LoadOptions::default())
         .unwrap()
         .0;
@@ -144,7 +143,8 @@ fn main() {
                     aabb: mesh.get_tri(i * 3).into(),
                 }),
         );
-    */
+    println!("len: {}", bvh.nodes().len());
+    println!("aabb: {:?}", bvh.aabb());
 
     // ===========
     //  Rendering

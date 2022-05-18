@@ -15,6 +15,7 @@ struct BVHNode{
     uint ty;
     uint right;
     uint miss;
+    uint _pad;
 };
 
 struct Intersection{
@@ -133,6 +134,7 @@ bool anyhit(Intersection inter){
 }
 
 const uint RAY_COUNT = 1;
+const uint BVH_LIMIT = 2000;
 
 void main(){
     uint x = gl_GlobalInvocationID.x;
@@ -143,13 +145,14 @@ void main(){
     // TODO: maybe ray_gen should return a RayPayload type.
     RayPayload ray = ray_gen(vec2(float(x), float(y)), z);
     uint ray_num = 0;
+    uint bvh_count = 0;
     //RayPayload ray_ret = RayPayload(ray, vec4(0., 0., 0., 0.), 1.0);
 
     while(ray_num < RAY_COUNT){
         // Start at root node.
         uint blas_id = 0;
         Intersection closest_inter = Intersection(vert_default, vec3(0., 0., 1./0.), 0, false);
-        while(true){
+        while(bvh_count < BVH_LIMIT){
             BVHNode node = bvh.nodes[blas_id];
             if(intersects_aabb(ray.ray, node.min, node.max)){
                 if(node.ty == TY_NODE){
@@ -158,39 +161,32 @@ void main(){
                 }
                 else if(node.ty == TY_LEAF){
                     Intersection inter = intersection(ray.ray, blas_id, node.right);
-                    // DEBUG
-
-                    Vert v0 = verts[indices[node.right + 0]];
-                    Vert v1 = verts[indices[node.right + 1]];
-                    Vert v2 = verts[indices[node.right + 2]];
-                    vec3 v01 = v1.pos.xyz - v0.pos.xyz;
-                    vec3 v02 = v2.pos.xyz - v0.pos.xyz;
-                    mat3 M = inverse(mat3(v01, v02, -ray.ray.dir.xyz));
-                    //imageStore(dst, ivec2(x, y), vec4(M[2], 1.));
-                    //vec3 uvt = triangle_uvt(ray.ray, v0.pos.xyz, v1.pos.xyz, v2.pos.xyz);
-
-                    // /DEBUG
                     if (inter.intersected && inter.uvt.z < closest_inter.uvt.z && anyhit(inter)){
                         closest_inter = inter;
-                        //imageStore(dst, ivec2(x, y), vec4(1., 0., 0., 1.));
                     }
                     // Break if we missed and the node is a right most node.
-                    if (node.miss == 0)
+                    if (node.miss == 0){
+                        imageStore(dst, ivec2(x, y), vec4(closest_inter.uvt.z, 0., 0., 1.));
                         break;
+                    }
                     // Goto miss node either way. Because we don't know if ther could be a closer hit.
                     blas_id = node.miss;
                 }
             }
             else{
                 // break if we have missed and the node is a right most node.
-                if (node.miss == 0)
+                if (node.miss == 0){
+                    //imageStore(dst, ivec2(x, y), vec4(1., 0., 0., 1.));
                     break;
+                }
                 // If we missed the aabb with the ray we go to the miss node.
                 blas_id = node.miss;
             }
+            bvh_count++;
             // TODO: add Safeguard for the case that blas_id >= blas_num.
             // This should not happen if the bvh has been generated corectly but a check would be good just in case.
         }
+        //imageStore(dst, ivec2(x, y), vec4(float(bvh.nodes[1].miss) / 10., 0., 0., 1.));
         if (closest_inter.intersected == true){
             ray = closest_hit(closest_inter.vert, ray, closest_inter.blas_id);
         }
@@ -202,7 +198,7 @@ void main(){
         ray_num++;
     }
 
-    imageStore(dst, ivec2(x, y), vec4(ray.color));
+    //imageStore(dst, ivec2(x, y), vec4(ray.color));
     //imageStore(dst, ivec2(x, y), vec4(rand2(vec2(float(x), float(y))), 0.0, 0.0, 1.0));
     //imageStore(dst, ivec2(x, y), vec4(1., 0., 0., 1.));
 }

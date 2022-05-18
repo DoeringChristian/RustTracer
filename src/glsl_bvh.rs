@@ -10,6 +10,7 @@ pub struct GlslBVHNode {
     pub ty: u32,
     pub right: u32,
     pub miss: u32,
+    pub _pad: u32,
 }
 impl GlslBVHNode {
     pub const TY_NODE: u32 = 0x00;
@@ -25,6 +26,7 @@ impl BVHNode for GlslBVHNode{
             max: [aabb.max[0], aabb.max[1], aabb.max[2], 0.],
             right: right as u32,
             miss: miss as u32,
+            _pad: 0,
         }
     }
 
@@ -36,6 +38,7 @@ impl BVHNode for GlslBVHNode{
             max: [aabb.max[0], aabb.max[1], aabb.max[2], 0.],
             right: index as u32,
             miss: miss as u32,
+            _pad: 0,
         }
     }
 
