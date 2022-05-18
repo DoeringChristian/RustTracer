@@ -35,15 +35,27 @@ layout(set = 0, binding = 2) buffer Indices{
     uint indices[];
 };
 
+layout(push_constant) uniform PushConstants{
+    uint width;
+    uint height;
+};
+
 layout(set = 1, binding = 0, rgba8) writeonly uniform image2D dst;
 
 const float PI = 3.14159265358979323846264338327950288;
 
-float rand2(vec2 co){
+// Generate random value in range 0..1
+float rand(float seed){
+    highp float c = 43758.5453;
+    highp float dt= seed;
+    highp float sn= mod(dt,3.14);
+    return fract(sin(sn) * c);
+}
+float rand(vec2 seed){
     highp float a = 12.9898;
     highp float b = 78.233;
     highp float c = 43758.5453;
-    highp float dt= dot(co.xy ,vec2(a,b));
+    highp float dt= dot(seed.xy ,vec2(a,b));
     highp float sn= mod(dt,3.14);
     return fract(sin(sn) * c);
 }
@@ -77,16 +89,6 @@ bool intersects_aabb(Ray ray, vec4 bmin, vec4 bmax){
     return true;
 }
 
-RayPayload closest_hit(Vert hit, RayPayload ray, uint blas_id){
-
-    return RayPayload(ray.ray, vec4(1., 0., 0., 1.), 0.0);
-    //return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
-}
-
-RayPayload miss(RayPayload ray){
-    return RayPayload(ray.ray, vec4(0., 1., 0., 1.), 0.);
-}
-
 float mix2(float v0, float v1, float v2, float u, float v){
     return (1. - u - v)  * v0 + v1 * u + v2 * v;
 }
@@ -107,6 +109,10 @@ vec3 triangle_uvt(Ray ray, vec3 v0, vec3 v1, vec3 v2){
     return M * (ray.pos.xyz - v0);
 }
 
+
+//============================================================
+// Ray tracing shader:
+//============================================================
 Intersection intersection(Ray ray, uint blas_id, uint index_id){
     Vert v0 = verts[indices[index_id + 0]];
     Vert v1 = verts[indices[index_id + 1]];
@@ -123,15 +129,35 @@ Intersection intersection(Ray ray, uint blas_id, uint index_id){
     }
 }
 
-RayPayload ray_gen(vec2 ss, uint ray_num){
-    ss = (ss * 1.)-vec2(0.5, 0.5);
-    Ray ray = Ray(vec4(0., 3., 0., 1.), vec4(ss.x, -1., ss.y, 1.));
+RayPayload ray_gen(vec2 screen_pos, uint ray_num){
+    uint z = gl_GlobalInvocationID.z;
+    // Offset at random in range (-0.5, 0.5)
+    screen_pos += vec2(rand(float(z)), rand(float(z+10000))) - vec2(0.5, 0.5);
+    // Normalize to screen width / height.
+    screen_pos /= vec2(float(width), float(height));
+    // Offset to center
+    screen_pos -= vec2(0.5, 0.5);
+    Ray ray = Ray(vec4(0., 3., 0., 1.), vec4(screen_pos.x, -1., screen_pos.y, 1.));
     return RayPayload(ray, vec4(0., 0., 0., 0.), 1.);
+}
+
+RayPayload closest_hit(Vert hit, RayPayload ray, uint blas_id){
+    return RayPayload(ray.ray, vec4(vec3(length(hit.pos.xyz - ray.ray.pos.xyz)/10.), 1.), 0.0);
+    //return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
+}
+
+RayPayload miss(RayPayload ray){
+    return RayPayload(ray.ray, vec4(0., 1., 0., 1.), 0.);
 }
 
 bool anyhit(Intersection inter){
     return true;
 }
+
+
+//============================================================
+// Main function for managing ray tracing shaders:
+//============================================================
 
 const uint RAY_COUNT = 1;
 const uint BVH_LIMIT = 2000;
@@ -142,7 +168,7 @@ void main(){
     uint z = gl_GlobalInvocationID.z;
     imageStore(dst, ivec2(x, y), vec4(0., 0., 0., 1.));
 
-    RayPayload ray = ray_gen(vec2(float(x) / 100., float(y) / 100.), z);
+    RayPayload ray = ray_gen(vec2(float(x), float(y)), z);
     uint ray_num = 0;
     uint bvh_count = 0;
 

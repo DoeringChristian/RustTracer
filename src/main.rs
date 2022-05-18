@@ -14,6 +14,13 @@ use presenter::*;
 use screen_13_fx::prelude_arc::*;
 use trace_ppl::*;
 
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct PushConstants{
+    pub width: u32,
+    pub height: u32,
+}
+
 pub trait Pos3 {
     fn pos3(&self) -> [f32; 3];
 }
@@ -220,6 +227,12 @@ fn main() {
         .run(|mut frame| {
             let mut render_graph = &mut frame.render_graph;
             {
+                println!("dt: {}", frame.dt);
+                let push_constants = PushConstants{
+                    width: image.as_ref().unwrap().info().width,
+                    height: image.as_ref().unwrap().info().height,
+                };
+
                 let image_buffer_node = render_graph.bind_node(image_buffer.take().unwrap());
                 let image_node = render_graph.bind_node(image.take().unwrap());
                 let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
@@ -234,6 +247,7 @@ fn main() {
                     .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
                     .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
                     .record_compute(move |c| {
+                        c.push_constants(bytemuck::cast_slice(&[push_constants]));
                         c.dispatch(trace_extent[0], trace_extent[1], trace_extent[2]);
                     });
                 render_graph.copy_image_to_buffer(image_node, image_buffer_node);
