@@ -4,6 +4,9 @@ struct Vert{
     vec4 pos;
     vec4 color;
 };
+
+const Vert vert_default = Vert(vec4(0., 0., 0., 1.), vec4(0., 0., 0., 1.));
+
 #define TY_NODE 0
 #define TY_LEAF 1
 struct BVHNode{
@@ -12,6 +15,13 @@ struct BVHNode{
     uint ty;
     uint right;
     uint miss;
+};
+
+struct Intersection{
+    Vert vert;
+    vec3 uvt;
+    uint blas_id;
+    bool intersected;
 };
 
 layout(set = 0, binding = 0) buffer BVH{
@@ -42,42 +52,78 @@ struct Ray{
     vec4 dir;
 };
 
-struct RayReturn{
+struct RayPayload{
     Ray ray;
     vec4 color;
+    float refl;
 };
 
-bool intersects_aabb(Ray ray, vec4 min, vec4 max){
+bool intersects_aabb(Ray ray, vec4 bmin, vec4 bmax){
     // TODO: intersection.
-    float t_near = (min.x - ray.pos.x)/ray.dir.x;
-    t_near = max(t_near, (min.y - ray.pos.y)/ray.dir.y);
-    t_near = max(t_near, (min.z - ray.pos.z)/ray.dir.z);
+    float t_near = (bmin.x - ray.pos.x)/ray.dir.x;
+    t_near = max(t_near, (bmin.y - ray.pos.y)/ray.dir.y);
+    t_near = max(t_near, (bmin.z - ray.pos.z)/ray.dir.z);
 
-    float t_far = (max.x - ray.pos.x)/ray.dir.x;
-    t_far = min(t_far, (max.y - ray.pos.y)/ray.dir.y);
-    t_far = min(t_far, (max.z - ray.pos.z)/ray.dir.z);
+    float t_far = (bmax.x - ray.pos.x)/ray.dir.x;
+    t_far = min(t_far, (bmax.y - ray.pos.y)/ray.dir.y);
+    t_far = min(t_far, (bmax.z - ray.pos.z)/ray.dir.z);
 
     if(t_near > t_far || t_far < 0)
         return false;
     return true;
 }
 
-RayReturn closest_hit(Vert hit, Ray ray, uint blas_id){
-    return RayReturn(ray, vec4(1., 0., 0., 1.));
+RayPayload closest_hit(Vert hit, RayPayload ray, uint blas_id){
+
+    return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
 }
 
-vec4 miss(Ray ray){
-    return vec4(0., 1., 0., 1.);
+RayPayload miss(RayPayload ray){
+    return RayPayload(ray.ray, ray.color + vec4(0., 1., 0., 1.) * ray.refl, ray.refl * 0.);
 }
 
-Vert intersection(Ray ray, uint blas_id, uint index_id){
+float mix2(float v0, float v1, float v2, float u, float v){
+    return (1. - u - v)  * v0 + v1 * u + v2 * v;
+}
+vec2 mix2(vec2 v0, vec2 v1, vec2 v2, float u, float v){
+    return (1. - u - v)  * v0 + v1 * u + v2 * v;
+}
+vec3 mix2(vec3 v0, vec3 v1, vec3 v2, float u, float v){
+    return (1. - u - v)  * v0 + v1 * u + v2 * v;
+}
+vec4 mix2(vec4 v0, vec4 v1, vec4 v2, float u, float v){
+    return (1. - u - v)  * v0 + v1 * u + v2 * v;
 }
 
-Ray ray_gen(vec2 ss, uint ray_num){
-    return Ray(vec4(1., 0., 0., 1.), vec4(-1., 0., 0., 1.));
+vec3 triangle_uvt(Ray ray, vec3 v0, vec3 v1, vec3 v2){
+    vec3 v01 = v1 - v0;
+    vec3 v02 = v2 - v0;
+    mat3 M = inverse(mat3(v01, v02, -ray.dir.xyz));
+    return M * (ray.pos.xyz - v0);
 }
 
-bool anyhit(Vert hit, uint blas_id){
+Intersection intersection(Ray ray, uint blas_id, uint index_id){
+    Vert v0 = verts[indices[index_id + 0]];
+    Vert v1 = verts[indices[index_id + 1]];
+    Vert v2 = verts[indices[index_id + 2]];
+    vec3 uvt = triangle_uvt(ray, v0.pos.xyz, v1.pos.xyz, v2.pos.xyz);
+    if(uvt.x + uvt.y <= 1 && uvt.x >= 0 && uvt.z >= 0){
+        vec4 pos_int = mix2(v0.pos, v1.pos, v2.pos, uvt.x, uvt.y);
+        vec4 color_int = mix2(v0.color, v1.color, v2.color, uvt.x, uvt.y);
+        Vert vert_int = Vert(pos_int, color_int);
+        return Intersection(vert_int, uvt, blas_id, true);
+    }
+    else{
+        return Intersection(v0, uvt, blas_id, false);
+    }
+}
+
+RayPayload ray_gen(vec2 ss, uint ray_num){
+    Ray ray = Ray(vec4(1., 0., 0., 1.), vec4(-1., 0., 0., 1.));
+    return RayPayload(ray, vec4(0., 0., 0., 0.), 1.);
+}
+
+bool anyhit(Intersection inter){
     return true;
 }
 
@@ -87,30 +133,56 @@ void main(){
     uint y = gl_GlobalInvocationID.y;
     uint z = gl_GlobalInvocationID.z;
 
-    Ray ray = ray_gen(vec2(float(x), float(y)), z);
+    // TODO: maybe ray_gen should return a RayPayload type.
+    RayPayload ray = ray_gen(vec2(float(x), float(y)), z);
+    uint ray_num = 0;
+    //RayPayload ray_ret = RayPayload(ray, vec4(0., 0., 0., 0.), 1.0);
 
-    // Start at root node.
-    uint blas_id = 0;
-    while(true){
-        BVHNode node = bvh.nodes[blas_id];
-        if(intersects_aabb(ray, node.min, node.max)){
-            if(node.ty == TY_NODE){
-                // Traverse left nodes
-                blas_id++;
+    while(ray_num < z){
+        // Start at root node.
+        uint blas_id = 0;
+        Intersection closest_inter = Intersection(vert_default, vec3(0., 0., 0.), 0, false);
+        while(true){
+            BVHNode node = bvh.nodes[blas_id];
+            if(intersects_aabb(ray.ray, node.min, node.max)){
+                if(node.ty == TY_NODE){
+                    // Traverse left nodes
+                    blas_id++;
+                }
+                else if(node.ty == TY_LEAF){
+                    Intersection inter = intersection(ray.ray, blas_id, node.right);
+                    if (inter.intersected && inter.uvt.z < closest_inter.uvt.z && anyhit(inter)){
+                        closest_inter = inter;
+                    }
+                    // Break if we missed and the node is a right most node.
+                    if (node.miss == 0)
+                        break;
+                    // Goto miss node either way. Because we don't know if ther could be a closer hit.
+                    blas_id = node.miss;
+                }
             }
-            else if(node.ty == TY_LEAF){
-                Vert v0 = verts[indices[node.right+0]];
-                Vert v1 = verts[indices[node.right+1]];
-                Vert v2 = verts[indices[node.right+2]];
+            else{
+                // break if we have missed and the node is a right most node.
+                if (node.miss == 0)
+                    break;
+                // If we missed the aabb with the ray we go to the miss node.
+                blas_id = node.miss;
             }
+            // TODO: add Safeguard for the case that blas_id >= blas_num.
+            // This should not happen if the bvh has been generated corectly but a check would be good just in case.
+        }
+        if (closest_inter.intersected == true){
+            ray = closest_hit(closest_inter.vert, ray, closest_inter.blas_id);
         }
         else{
-            // If we missed the aabb with the ray we go to the miss node.
-            blas_id = node.miss;
+            // There has not been any hit so we return the miss color.
+            ray = miss(ray);
+            break;
         }
-        break;
+        ray_num++;
     }
 
-    imageStore(dst, ivec2(x, y), vec4(rand2(vec2(float(x), float(y))), 0.0, 0.0, 1.0));
+    imageStore(dst, ivec2(x, y), vec4(ray.color));
+    //imageStore(dst, ivec2(x, y), vec4(rand2(vec2(float(x), float(y))), 0.0, 0.0, 1.0));
     //imageStore(dst, ivec2(x, y), vec4(1., 0., 0., 1.));
 }
