@@ -124,8 +124,8 @@ Intersection intersection(Ray ray, uint blas_id, uint index_id){
 }
 
 RayPayload ray_gen(vec2 ss, uint ray_num){
-    ss = ss-vec2(0.5, 0.5);
-    Ray ray = Ray(vec4(0., 5., 0., 1.), vec4(ss.x, -1., ss.y, 1.));
+    ss = (ss * 2.)-vec2(1., 1.);
+    Ray ray = Ray(vec4(0., 2., 0., 1.), vec4(ss.x, -1., ss.y, 1.));
     return RayPayload(ray, vec4(0., 0., 0., 0.), 1.);
 }
 
