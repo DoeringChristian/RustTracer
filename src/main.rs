@@ -76,7 +76,7 @@ impl Mesh {
 fn main() {
     let verts = vec![
         Vert {
-            pos: [0., 0., 0., 1.],
+            pos: [0., 0., 1., 1.],
             color: [0., 0., 0., 1.],
         },
         Vert {

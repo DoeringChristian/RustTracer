@@ -68,6 +68,9 @@ bool intersects_aabb(Ray ray, vec4 bmin, vec4 bmax){
     t_far = min(t_far, (bmax.y - ray.pos.y)/ray.dir.y);
     t_far = min(t_far, (bmax.z - ray.pos.z)/ray.dir.z);
 
+    // DEBUG:
+    return true;
+
     if(t_near > t_far || t_far < 0)
         return false;
     return true;
@@ -121,7 +124,7 @@ Intersection intersection(Ray ray, uint blas_id, uint index_id){
 
 RayPayload ray_gen(vec2 ss, uint ray_num){
     ss = ss-vec2(50., 50.);
-    Ray ray = Ray(vec4(0., 0., 2., 1.), vec4(ss.x * 0.01, ss.y * 0.01, -1., 1.));
+    Ray ray = Ray(vec4(0., 0., 2., 1.), vec4(ss.x * 0.1, ss.y * 0.1, -1., 1.));
     return RayPayload(ray, vec4(0., 0., 0., 0.), 1.);
 }
 
@@ -135,6 +138,7 @@ void main(){
     uint x = gl_GlobalInvocationID.x;
     uint y = gl_GlobalInvocationID.y;
     uint z = gl_GlobalInvocationID.z;
+    imageStore(dst, ivec2(x, y), vec4(0., 0., 0., 1.));
 
     // TODO: maybe ray_gen should return a RayPayload type.
     RayPayload ray = ray_gen(vec2(float(x), float(y)), z);
@@ -144,7 +148,7 @@ void main(){
     while(ray_num < RAY_COUNT){
         // Start at root node.
         uint blas_id = 0;
-        Intersection closest_inter = Intersection(vert_default, vec3(0., 0., 0.), 0, false);
+        Intersection closest_inter = Intersection(vert_default, vec3(0., 0., 1./0.), 0, false);
         while(true){
             BVHNode node = bvh.nodes[blas_id];
             if(intersects_aabb(ray.ray, node.min, node.max)){
@@ -154,8 +158,21 @@ void main(){
                 }
                 else if(node.ty == TY_LEAF){
                     Intersection inter = intersection(ray.ray, blas_id, node.right);
+                    // DEBUG
+
+                    Vert v0 = verts[indices[node.right + 0]];
+                    Vert v1 = verts[indices[node.right + 1]];
+                    Vert v2 = verts[indices[node.right + 2]];
+                    vec3 v01 = v1.pos.xyz - v0.pos.xyz;
+                    vec3 v02 = v2.pos.xyz - v0.pos.xyz;
+                    mat3 M = inverse(mat3(v01, v02, -ray.ray.dir.xyz));
+                    //imageStore(dst, ivec2(x, y), vec4(M[2], 1.));
+                    //vec3 uvt = triangle_uvt(ray.ray, v0.pos.xyz, v1.pos.xyz, v2.pos.xyz);
+
+                    // /DEBUG
                     if (inter.intersected && inter.uvt.z < closest_inter.uvt.z && anyhit(inter)){
                         closest_inter = inter;
+                        //imageStore(dst, ivec2(x, y), vec4(1., 0., 0., 1.));
                     }
                     // Break if we missed and the node is a right most node.
                     if (node.miss == 0)
