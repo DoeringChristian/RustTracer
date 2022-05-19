@@ -176,6 +176,8 @@ dependencies = [
  "pretty_env_logger",
  "screen-13",
  "screen-13-fx",
+ "spirq",
+ "spirv-reflect",
  "time-test",
  "tobj",
  "winit",
@@ -1567,6 +1569,20 @@ dependencies = [
  "fnv",
  "num-derive",
  "num-traits",
+ "spirv_headers",
+]
+
+[[package]]
+name = "spirv-reflect"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cecc7af6a7d3ca6d15f4d6b5077df89c77ad1f4b314d0cabee221656d041dad7"
+dependencies = [
+ "bitflags",
+ "cc",
+ "num-traits",
+ "serde",
+ "serde_derive",
  "spirv_headers",
 ]
 

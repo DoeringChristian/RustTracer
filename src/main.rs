@@ -157,13 +157,15 @@ fn main() {
     //  Rendering
     // ===========
 
-    let screen_13 = EventLoop::new().build().unwrap();
+    //let logger = pretty_env_logger::init();
+
+    let screen_13 = EventLoop::new().debug(false).build().unwrap();
     //let mut presenter = GraphicPresenter::new(&screen_13.device).unwrap();
     let presenter = Presenter::new(&screen_13.device);
     let mut cache = HashPool::new(&screen_13.device);
 
     let cppl = screen_13.new_compute_pipeline(ComputePipelineInfo::new(
-        inline_spirv::include_spirv!("src/shaders/trace.glsl", comp).as_slice(),
+        inline_spirv::include_spirv!("src/shaders/trace.glsl", comp, vulkan1_2).as_slice(),
     ));
 
     println!("test");
@@ -175,7 +177,7 @@ fn main() {
                 vk::BufferUsageFlags::STORAGE_BUFFER,
             ))
             .expect("Could not create Index Buffer");
-        println!("{}", buf.as_ref().info().size);
+        //println!("{}", buf.as_ref().info().size);
         Buffer::copy_from_slice(
             buf.get_mut().expect("Could not get Index Buffer"),
             0,
@@ -242,7 +244,8 @@ fn main() {
                 render_graph
                     .begin_pass("Tracer Pass")
                     .bind_pipeline(&cppl)
-                    .access_descriptor((0, 0), bvh_node, AccessType::ComputeShaderReadOther)
+                    .read_descriptor((0, 0, [0]), bvh_node)
+                    //.access_descriptor((0, 0, [0]), bvh_node, AccessType::ComputeShaderReadOther)
                     .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
                     .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
                     .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
@@ -268,7 +271,7 @@ fn main() {
                 bvh_buffer = Some(render_graph.unbind_node(bvh_node));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
             }
-            //frame.exit();
+            frame.exit();
         })
         .unwrap();
     let image_buffer_content =
