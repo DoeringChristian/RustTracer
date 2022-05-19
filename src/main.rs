@@ -206,7 +206,7 @@ fn main() {
         buf
     }));
 
-    let trace_extent = [100, 100, 1];
+    let trace_extent = [100, 100, 2];
 
     let mut image = Some(screen_13.new_image(ImageInfo::new_2d(
         vk::Format::R8G8B8A8_UNORM,
@@ -224,6 +224,16 @@ fn main() {
             .unwrap();
         buf
     }));
+
+    let mut images: Vec<Option<ImageBinding>> = (0..trace_extent[2]).into_iter().map(|i|{
+        Some(screen_13.new_image(ImageInfo::new_2d(
+            vk::Format::R8G8B8A8_UNORM,
+            trace_extent[0],
+            trace_extent[1],
+            vk::ImageUsageFlags::STORAGE,
+        )))
+    }).collect();
+
 
     screen_13
         .run(|mut frame| {
