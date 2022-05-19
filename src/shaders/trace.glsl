@@ -38,6 +38,7 @@ layout(set = 0, binding = 2) buffer Indices{
 layout(push_constant) uniform PushConstants{
     uint width;
     uint height;
+    uint num_paths;
 };
 
 layout(set = 1, binding = 0, rgba8) writeonly uniform image2D dst;
@@ -219,5 +220,6 @@ void main(){
         ray_num++;
     }
 
+    //imageAtomicAdd(dst, ivec2(x, y), vec4(ray.color)/float(num_paths))
     imageStore(dst, ivec2(x, y), vec4(ray.color));
 }

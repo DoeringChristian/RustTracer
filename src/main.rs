@@ -19,6 +19,7 @@ use trace_ppl::*;
 pub struct PushConstants{
     pub width: u32,
     pub height: u32,
+    pub num_paths: u32,
 }
 
 pub trait Pos3 {
@@ -243,6 +244,7 @@ fn main() {
                 let push_constants = PushConstants{
                     width: image.as_ref().unwrap().info().width,
                     height: image.as_ref().unwrap().info().height,
+                    num_paths: trace_extent[2],
                 };
 
                 let image_buffer_node = render_graph.bind_node(image_buffer.take().unwrap());
@@ -250,6 +252,7 @@ fn main() {
                 let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
                 let index_node = render_graph.bind_node(index_buffer.take().unwrap());
                 let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
+                let images_node = images.iter_mut().map(|img| render_graph.bind_node(img.take().unwrap())).collect::<Vec<_>>();
 
                 render_graph
                     .begin_pass("Tracer Pass")
@@ -280,6 +283,9 @@ fn main() {
                 vertex_buffer = Some(render_graph.unbind_node(vertex_node));
                 bvh_buffer = Some(render_graph.unbind_node(bvh_node));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
+                for (i, node) in images_node.into_iter().enumerate(){
+                    images[i] = Some(render_graph.unbind_node(node));
+                }
             }
             frame.exit();
         })
