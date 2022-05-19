@@ -207,7 +207,7 @@ fn main() {
         buf
     }));
 
-    let trace_extent = [100, 100, 2];
+    let trace_extent = [100, 100, 1];
 
     let mut image = Some(screen_13.new_image(ImageInfo::new_2d(
         vk::Format::R8G8B8A8_UNORM,
@@ -252,7 +252,7 @@ fn main() {
                 let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
                 let index_node = render_graph.bind_node(index_buffer.take().unwrap());
                 let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
-                let images_node = images.iter_mut().map(|img| render_graph.bind_node(img.take().unwrap())).collect::<Vec<_>>();
+                //let images_node = images.iter_mut().map(|img| render_graph.bind_node(img.take().unwrap())).collect::<Vec<_>>();
 
                 render_graph
                     .begin_pass("Tracer Pass")
@@ -283,9 +283,11 @@ fn main() {
                 vertex_buffer = Some(render_graph.unbind_node(vertex_node));
                 bvh_buffer = Some(render_graph.unbind_node(bvh_node));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
+                /*
                 for (i, node) in images_node.into_iter().enumerate(){
                     images[i] = Some(render_graph.unbind_node(node));
                 }
+                */
             }
             frame.exit();
         })
