@@ -158,9 +158,9 @@ fn main() {
     //  Rendering
     // ===========
 
-    //let logger = pretty_env_logger::init();
+    pretty_env_logger::init();
 
-    let screen_13 = EventLoop::new().debug(false).build().unwrap();
+    let screen_13 = EventLoop::new().debug(true).build().unwrap();
     //let mut presenter = GraphicPresenter::new(&screen_13.device).unwrap();
     let presenter = Presenter::new(&screen_13.device);
     let mut cache = HashPool::new(&screen_13.device);
@@ -209,13 +209,6 @@ fn main() {
 
     let trace_extent = [100, 100, 1];
 
-    let mut image = Some(screen_13.new_image(ImageInfo::new_2d(
-        vk::Format::R8G8B8A8_UNORM,
-        trace_extent[0],
-        trace_extent[1],
-        vk::ImageUsageFlags::STORAGE,
-    )));
-
     let mut image_buffer = Some(BufferLeaseBinding({
         let buf = cache
             .lease(BufferInfo::new_mappable(
@@ -226,51 +219,56 @@ fn main() {
         buf
     }));
 
-    let mut images: Vec<Option<ImageBinding>> = (0..trace_extent[2]).into_iter().map(|i|{
-        Some(screen_13.new_image(ImageInfo::new_2d(
-            vk::Format::R8G8B8A8_UNORM,
-            trace_extent[0],
-            trace_extent[1],
-            vk::ImageUsageFlags::STORAGE,
-        )))
-    }).collect();
-
-
     screen_13
         .run(|mut frame| {
             let mut render_graph = &mut frame.render_graph;
             {
                 println!("dt: {}", frame.dt);
                 let push_constants = PushConstants{
-                    width: image.as_ref().unwrap().info().width,
-                    height: image.as_ref().unwrap().info().height,
+                    width: trace_extent[0],
+                    height: trace_extent[1],
                     num_paths: trace_extent[2],
                 };
 
                 let image_buffer_node = render_graph.bind_node(image_buffer.take().unwrap());
-                let image_node = render_graph.bind_node(image.take().unwrap());
+                //let image_node = render_graph.bind_node(image.take().unwrap());
                 let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
                 let index_node = render_graph.bind_node(index_buffer.take().unwrap());
                 let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
-                //let images_node = images.iter_mut().map(|img| render_graph.bind_node(img.take().unwrap())).collect::<Vec<_>>();
+                let images_nodes = (0..trace_extent[2]).into_iter().map(|_|{
+                    render_graph.bind_node(cache.lease(ImageInfo::new_2d(
+                                vk::Format::R8G8B8A8_UNORM,
+                                trace_extent[0],
+                                trace_extent[1],
+                                vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::SAMPLED,
+                    )).unwrap())
+                }).collect::<Vec<_>>();
 
-                render_graph
+                let mut tracer_pass = render_graph
                     .begin_pass("Tracer Pass")
                     .bind_pipeline(&cppl)
                     .read_descriptor((0, 0, [0]), bvh_node)
                     //.access_descriptor((0, 0, [0]), bvh_node, AccessType::ComputeShaderReadOther)
                     .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
-                    .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther)
-                    .access_descriptor((1, 0), image_node, AccessType::ComputeShaderWrite)
+                    .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther);
+                tracer_pass = tracer_pass.write_descriptor((1, 0), images_nodes[0]);
+                /*
+                for (i, image_node) in images_nodes.iter().enumerate(){
+                    tracer_pass = tracer_pass.write_descriptor((1, 0, [i as u32]), *image_node);
+                }
+                */
+                tracer_pass
+                    //.access_descriptor((1, 0), images_nodes[0], AccessType::ComputeShaderWrite)
                     .record_compute(move |c| {
                         c.push_constants(bytemuck::cast_slice(&[push_constants]));
                         c.dispatch(trace_extent[0], trace_extent[1], trace_extent[2]);
                     });
-                render_graph.copy_image_to_buffer(image_node, image_buffer_node);
+                render_graph.copy_image_to_buffer(images_nodes[0], image_buffer_node);
 
+                //render_graph.clear_color_image(frame.swapchain_image);
                 presenter.present(
                     &mut render_graph,
-                    image_node,
+                    images_nodes[0],
                     frame.swapchain_image,
                     [
                         frame.window.inner_size().width,
@@ -278,18 +276,16 @@ fn main() {
                     ],
                 );
 
-                image = Some(render_graph.unbind_node(image_node));
+                //image = Some(render_graph.unbind_node(image_node));
                 index_buffer = Some(render_graph.unbind_node(index_node));
                 vertex_buffer = Some(render_graph.unbind_node(vertex_node));
                 bvh_buffer = Some(render_graph.unbind_node(bvh_node));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
-                /*
-                for (i, node) in images_node.into_iter().enumerate(){
-                    images[i] = Some(render_graph.unbind_node(node));
+                for image_node in images_nodes{
+                    render_graph.unbind_node(image_node);
                 }
-                */
             }
-            frame.exit();
+            //frame.exit();
         })
         .unwrap();
     let image_buffer_content =
@@ -300,5 +296,5 @@ fn main() {
         image_buffer_content,
     )
     .unwrap();
-    img.save("out.png");
+    img.save("out.png").unwrap();
 }

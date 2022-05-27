@@ -9,7 +9,7 @@ edition = "2021"
 tobj = "*"
 time-test = "*"
 winit = "0.26"
-screen-13 = {git = "https://github.com/attackgoat/screen-13.git"}
+screen-13 = {git = "https://github.com/DoeringChristian/screen-13", branch = "bindless"}
 screen-13-fx = {git = "https://github.com/attackgoat/screen-13.git"}
 gpu-allocator = { git = "https://github.com/Traverse-Research/gpu-allocator.git", branch = "ash-0.37" } # https://github.com/Traverse-Research/gpu-allocator/pull/104
 #raw-window-handle = "0.4"

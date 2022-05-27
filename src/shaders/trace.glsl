@@ -1,4 +1,5 @@
-#version 450
+#version 460 core
+#extension GL_EXT_nonuniform_qualifier : require
 
 struct Vert{
     vec4 pos;

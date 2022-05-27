@@ -170,11 +170,11 @@ version = "0.1.0"
 dependencies = [
  "archery",
  "bytemuck",
- "gpu-allocator",
+ "gpu-allocator 0.17.0",
  "image",
  "inline-spirv",
  "pretty_env_logger",
- "screen-13",
+ "screen-13 0.3.0 (git+https://github.com/DoeringChristian/screen-13?branch=bindless)",
  "screen-13-fx",
  "spirq",
  "spirv-reflect",
@@ -694,6 +694,19 @@ dependencies = [
  "log",
  "thiserror",
  "winapi",
+]
+
+[[package]]
+name = "gpu-allocator"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd070a889c24332ca2408ef95cea3b6135fe6be5fb48bef02e274242dce2a8d8"
+dependencies = [
+ "ash 0.37.0+1.3.209",
+ "backtrace",
+ "log",
+ "thiserror",
+ "windows",
 ]
 
 [[package]]
@@ -1450,6 +1463,27 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 [[package]]
 name = "screen-13"
 version = "0.3.0"
+source = "git+https://github.com/DoeringChristian/screen-13?branch=bindless#29c109e41b8ca8c801754f6d91f817c1eb6e34db"
+dependencies = [
+ "archery",
+ "ash 0.37.0+1.3.209",
+ "ash-molten",
+ "ash-window",
+ "derive_builder",
+ "gpu-allocator 0.18.0",
+ "log",
+ "ordered-float",
+ "parking_lot 0.12.0",
+ "paste",
+ "raw-window-handle 0.4.3",
+ "spirq",
+ "vk-sync-fork",
+ "winit",
+]
+
+[[package]]
+name = "screen-13"
+version = "0.3.0"
 source = "git+https://github.com/attackgoat/screen-13.git#ea1291b64708538c84bbdc030121f2dbbb9638b6"
 dependencies = [
  "archery",
@@ -1458,7 +1492,7 @@ dependencies = [
  "ash-window",
  "bitflags",
  "derive_builder",
- "gpu-allocator",
+ "gpu-allocator 0.17.0",
  "log",
  "ordered-float",
  "parking_lot 0.12.0",
@@ -1483,7 +1517,7 @@ dependencies = [
  "inline-spirv",
  "lazy_static",
  "parking_lot 0.12.0",
- "screen-13",
+ "screen-13 0.3.0 (git+https://github.com/attackgoat/screen-13.git)",
 ]
 
 [[package]]
@@ -1922,6 +1956,19 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "windows"
+version = "0.36.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e53b97a83176b369b0eb2fd8158d4ae215357d02df9d40c1e1bf1879c5482c80"
+dependencies = [
+ "windows_aarch64_msvc",
+ "windows_i686_gnu",
+ "windows_i686_msvc",
+ "windows_x86_64_gnu",
+ "windows_x86_64_msvc",
+]
 
 [[package]]
 name = "windows-sys"
