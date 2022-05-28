@@ -235,14 +235,13 @@ fn main() {
                 let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
                 let index_node = render_graph.bind_node(index_buffer.take().unwrap());
                 let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
-                let images_nodes = (0..trace_extent[2]).into_iter().map(|_|{
+                let image_node = 
                     render_graph.bind_node(cache.lease(ImageInfo::new_2d(
                                 vk::Format::R8G8B8A8_UNORM,
                                 trace_extent[0],
                                 trace_extent[1],
                                 vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::SAMPLED,
-                    )).unwrap())
-                }).collect::<Vec<_>>();
+                    )).unwrap());
 
                 let mut tracer_pass = render_graph
                     .begin_pass("Tracer Pass")
@@ -251,7 +250,7 @@ fn main() {
                     //.access_descriptor((0, 0, [0]), bvh_node, AccessType::ComputeShaderReadOther)
                     .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
                     .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther);
-                tracer_pass = tracer_pass.write_descriptor((1, 0), images_nodes[0]);
+                tracer_pass = tracer_pass.write_descriptor((1, 0), image_node);
                 /*
                 for (i, image_node) in images_nodes.iter().enumerate(){
                     tracer_pass = tracer_pass.write_descriptor((1, 0, [i as u32]), *image_node);
@@ -263,12 +262,12 @@ fn main() {
                         c.push_constants(bytemuck::cast_slice(&[push_constants]));
                         c.dispatch(trace_extent[0], trace_extent[1], trace_extent[2]);
                     });
-                render_graph.copy_image_to_buffer(images_nodes[0], image_buffer_node);
+                render_graph.copy_image_to_buffer(image_node, image_buffer_node);
 
                 //render_graph.clear_color_image(frame.swapchain_image);
                 presenter.present(
                     &mut render_graph,
-                    images_nodes[0],
+                    image_node,
                     frame.swapchain_image,
                     [
                         frame.window.inner_size().width,
@@ -281,9 +280,7 @@ fn main() {
                 vertex_buffer = Some(render_graph.unbind_node(vertex_node));
                 bvh_buffer = Some(render_graph.unbind_node(bvh_node));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
-                for image_node in images_nodes{
-                    render_graph.unbind_node(image_node);
-                }
+                render_graph.unbind_node(image_node);
             }
             //frame.exit();
         })

@@ -174,7 +174,7 @@ dependencies = [
  "image",
  "inline-spirv",
  "pretty_env_logger",
- "screen-13 0.3.0 (git+https://github.com/DoeringChristian/screen-13?branch=bindless)",
+ "screen-13 0.3.1",
  "screen-13-fx",
  "spirq",
  "spirv-reflect",
@@ -1463,27 +1463,6 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 [[package]]
 name = "screen-13"
 version = "0.3.0"
-source = "git+https://github.com/DoeringChristian/screen-13?branch=bindless#29c109e41b8ca8c801754f6d91f817c1eb6e34db"
-dependencies = [
- "archery",
- "ash 0.37.0+1.3.209",
- "ash-molten",
- "ash-window",
- "derive_builder",
- "gpu-allocator 0.18.0",
- "log",
- "ordered-float",
- "parking_lot 0.12.0",
- "paste",
- "raw-window-handle 0.4.3",
- "spirq",
- "vk-sync-fork",
- "winit",
-]
-
-[[package]]
-name = "screen-13"
-version = "0.3.0"
 source = "git+https://github.com/attackgoat/screen-13.git#ea1291b64708538c84bbdc030121f2dbbb9638b6"
 dependencies = [
  "archery",
@@ -1505,6 +1484,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "screen-13"
+version = "0.3.1"
+source = "git+https://github.com/DoeringChristian/screen-13?branch=master#cb5150fa321325a7c2f3530a67d1a74688c39749"
+dependencies = [
+ "archery",
+ "ash 0.37.0+1.3.209",
+ "ash-molten",
+ "ash-window",
+ "derive_builder",
+ "gpu-allocator 0.18.0",
+ "log",
+ "ordered-float",
+ "parking_lot 0.12.0",
+ "paste",
+ "raw-window-handle 0.4.3",
+ "spirq",
+ "vk-sync-fork",
+ "winit",
+]
+
+[[package]]
 name = "screen-13-fx"
 version = "0.1.0"
 source = "git+https://github.com/attackgoat/screen-13.git#ea1291b64708538c84bbdc030121f2dbbb9638b6"
@@ -1517,7 +1517,7 @@ dependencies = [
  "inline-spirv",
  "lazy_static",
  "parking_lot 0.12.0",
- "screen-13 0.3.0 (git+https://github.com/attackgoat/screen-13.git)",
+ "screen-13 0.3.0",
 ]
 
 [[package]]
