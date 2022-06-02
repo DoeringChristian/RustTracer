@@ -83,10 +83,14 @@ bool intersects_aabb(Ray ray, vec4 bmin, vec4 bmax){
     t_far = min(t_far, (bmax.y - ray.pos.y)/ray.dir.y);
     t_far = min(t_far, (bmax.z - ray.pos.z)/ray.dir.z);
 
-    // DEBUG:
-    return true;
+    vec3 tmin = (bmin.xyz - ray.pos.xyz) / ray.dir.xyz;
+    vec3 tmax = (bmax.xyz - ray.pos.xyz) / ray.dir.xyz;
+    vec3 t1 = min(tmin, tmax);
+    vec3 t2 = max(tmin, tmax);
+    float tnear = max(max(t1.x, t1.y), t1.z);
+    float tfar = min(min(t2.x, t2.y), t2.z);
 
-    if(t_near > t_far || t_far < 0)
+    if(tnear > tfar || tfar < 0)
         return false;
     return true;
 }

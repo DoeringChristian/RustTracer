@@ -231,7 +231,6 @@ fn main() {
                 };
 
                 let image_buffer_node = render_graph.bind_node(image_buffer.take().unwrap());
-                //let image_node = render_graph.bind_node(image.take().unwrap());
                 let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
                 let index_node = render_graph.bind_node(index_buffer.take().unwrap());
                 let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
@@ -247,9 +246,8 @@ fn main() {
                     .begin_pass("Tracer Pass")
                     .bind_pipeline(&cppl)
                     .read_descriptor((0, 0, [0]), bvh_node)
-                    //.access_descriptor((0, 0, [0]), bvh_node, AccessType::ComputeShaderReadOther)
-                    .access_descriptor((0, 1), vertex_node, AccessType::ComputeShaderReadOther)
-                    .access_descriptor((0, 2), index_node, AccessType::ComputeShaderReadOther);
+                    .read_descriptor((0, 1), vertex_node)
+                    .read_descriptor((0, 2), index_node);
                 tracer_pass = tracer_pass.write_descriptor((1, 0), image_node);
                 /*
                 for (i, image_node) in images_nodes.iter().enumerate(){
