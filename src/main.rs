@@ -152,7 +152,9 @@ fn main() {
                 }),
         );
     println!("len: {}", bvh.nodes().len());
-    println!("aabb: {:?}", bvh.aabb());
+    println!("root node: {:#?}", bvh.nodes()[0]);
+    println!("l: {:#?}", bvh.nodes()[1]);
+    println!("r: {:#?}", bvh.nodes()[bvh.nodes()[0].right as usize]);
 
     // ===========
     //  Rendering

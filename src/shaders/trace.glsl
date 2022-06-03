@@ -74,15 +74,6 @@ struct RayPayload{
 };
 
 bool intersects_aabb(Ray ray, vec4 bmin, vec4 bmax){
-    // TODO: intersection.
-    float t_near = (bmin.x - ray.pos.x)/ray.dir.x;
-    t_near = max(t_near, (bmin.y - ray.pos.y)/ray.dir.y);
-    t_near = max(t_near, (bmin.z - ray.pos.z)/ray.dir.z);
-
-    float t_far = (bmax.x - ray.pos.x)/ray.dir.x;
-    t_far = min(t_far, (bmax.y - ray.pos.y)/ray.dir.y);
-    t_far = min(t_far, (bmax.z - ray.pos.z)/ray.dir.z);
-
     vec3 tmin = (bmin.xyz - ray.pos.xyz) / ray.dir.xyz;
     vec3 tmax = (bmax.xyz - ray.pos.xyz) / ray.dir.xyz;
     vec3 t1 = min(tmin, tmax);

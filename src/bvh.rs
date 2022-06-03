@@ -162,7 +162,7 @@ impl<Node: BVHNode> BVH<Node> {
         let aabb = children
             .iter()
             .map(|c| c.aabb)
-            .fold(children[0].aabb, AABB::grow);
+            .fold(AABB::empty(), AABB::grow);
         let mut nodes: Vec<Node> = Vec::new();
         let mut buckets = vec![Vec::new(); N];
         Self::buckets_pivot::<N>(&mut nodes, aabb, &mut children, &mut buckets, 0);
@@ -262,15 +262,15 @@ impl<Node: BVHNode> BVH<Node> {
 
             // Accumulate the bounding boxes of the buffers for the left and right side. This gives
             // linear speed.
-            let mut l_bucket_aabb_acc = [AABB::empty(); N];
-            let mut r_bucket_aabb_acc = [AABB::empty(); N];
+            let mut l_bucket_aabb_acc = vec![AABB::empty(); N-1];
+            let mut r_bucket_aabb_acc = vec![AABB::empty(); N-1];
             let mut l_aabb = AABB::empty();
             let mut r_aabb = AABB::empty();
             for i in 0..(N - 1) {
                 l_aabb = l_aabb.grow(bucket_aabbs[i]);
                 r_aabb = r_aabb.grow(bucket_aabbs[N - i - 1]);
                 l_bucket_aabb_acc[i] = l_aabb;
-                r_bucket_aabb_acc[i] = r_aabb;
+                r_bucket_aabb_acc[N - i - 2] = r_aabb;
             }
 
             // Find the bucket after which we should split.
