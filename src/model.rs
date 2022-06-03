@@ -34,19 +34,19 @@ impl Model {
         self.bvh.as_ref().unwrap().aabb()
     }
 
-    pub fn upload_verts(&self, cache: &mut HashPool) -> Option<BufferLeaseBinding<ArcK>> {
+    pub fn upload_verts(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK> {
         self.mesh.upload_verts(cache)
     }
-    pub fn upload_indices(&self, cache: &mut HashPool) -> Option<BufferLeaseBinding<ArcK>> {
+    pub fn upload_indices(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK> {
         self.mesh.upload_indices(cache)
     }
-    pub fn upload_bvh(&self, cache: &mut HashPool) -> Option<BufferLeaseBinding<ArcK>> {
-        Some(BufferLeaseBinding({
+    pub fn upload_bvh(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK> {
+        BufferLeaseBinding({
             let mut buf = cache
                 .lease(BufferInfo::new_mappable(
-                    (std::mem::size_of::<GlslBVHNode>() * self.bvh.as_ref().unwrap().nodes().len())
+                        (std::mem::size_of::<GlslBVHNode>() * self.bvh.as_ref().unwrap().nodes().len())
                         as u64,
-                    vk::BufferUsageFlags::STORAGE_BUFFER,
+                        vk::BufferUsageFlags::STORAGE_BUFFER,
                 ))
                 .unwrap();
             Buffer::copy_from_slice(
@@ -55,6 +55,6 @@ impl Model {
                 bytemuck::cast_slice(self.bvh.as_ref().unwrap().nodes()),
             );
             buf
-        }))
+        })
     }
 }

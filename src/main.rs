@@ -18,6 +18,7 @@ use presenter::*;
 use screen_13_fx::prelude_arc::*;
 use trace_ppl::*;
 use model::*;
+use world::*;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -28,6 +29,8 @@ pub struct PushConstants{
 }
 
 fn main() {
+    let mut world = World::new();
+    world.append_obj("src/assets/suzanne.obj");
     let model = Model::load_obj("src/assets/suzanne.obj");
 
     //let bvh = model.create_bvh_glsl();
@@ -54,10 +57,8 @@ fn main() {
         inline_spirv::include_spirv!("src/shaders/trace.glsl", comp, vulkan1_2).as_slice(),
     ));
 
+    let mut world_binding = Some(world.upload(&mut cache));
     println!("test");
-    let mut index_buffer = model.upload_indices(&mut cache);
-    let mut vertex_buffer = model.upload_verts(&mut cache);
-    let mut bvh_buffer = model.upload_bvh(&mut cache);
 
     let trace_extent = [100, 100, 1];
 
@@ -82,10 +83,14 @@ fn main() {
                     num_paths: trace_extent[2],
                 };
 
-                let image_buffer_node = render_graph.bind_node(image_buffer.take().unwrap());
+                let world_node = world_binding.take().unwrap().bind(&mut render_graph);
+                /*
                 let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
                 let index_node = render_graph.bind_node(index_buffer.take().unwrap());
                 let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
+                */
+
+                let image_buffer_node = render_graph.bind_node(image_buffer.take().unwrap());
                 let image_node = 
                     render_graph.bind_node(cache.lease(ImageInfo::new_2d(
                                 vk::Format::R8G8B8A8_UNORM,
@@ -96,22 +101,16 @@ fn main() {
 
                 let mut tracer_pass = render_graph
                     .begin_pass("Tracer Pass")
-                    .bind_pipeline(&cppl)
-                    .read_descriptor((0, 0, [0]), bvh_node)
-                    .read_descriptor((0, 1), vertex_node)
-                    .read_descriptor((0, 2), index_node);
+                    .bind_pipeline(&cppl);
+                tracer_pass = world_node.record_descriptors(tracer_pass);
                 tracer_pass = tracer_pass.write_descriptor((1, 0), image_node);
-                /*
-                for (i, image_node) in images_nodes.iter().enumerate(){
-                    tracer_pass = tracer_pass.write_descriptor((1, 0, [i as u32]), *image_node);
-                }
-                */
+
                 tracer_pass
-                    //.access_descriptor((1, 0), images_nodes[0], AccessType::ComputeShaderWrite)
                     .record_compute(move |c| {
                         c.push_constants(bytemuck::cast_slice(&[push_constants]));
                         c.dispatch(trace_extent[0], trace_extent[1], trace_extent[2]);
                     });
+
                 render_graph.copy_image_to_buffer(image_node, image_buffer_node);
 
                 //render_graph.clear_color_image(frame.swapchain_image);
@@ -126,9 +125,7 @@ fn main() {
                 );
 
                 //image = Some(render_graph.unbind_node(image_node));
-                index_buffer = Some(render_graph.unbind_node(index_node));
-                vertex_buffer = Some(render_graph.unbind_node(vertex_node));
-                bvh_buffer = Some(render_graph.unbind_node(bvh_node));
+                world_binding = Some(world_node.unbind(&mut render_graph));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
                 render_graph.unbind_node(image_node);
             }

@@ -97,8 +97,8 @@ impl Mesh {
         )
     }
 
-    pub fn upload_verts(&self, cache: &mut HashPool) -> Option<BufferLeaseBinding<ArcK>>{
-        Some(BufferLeaseBinding({
+    pub fn upload_verts(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK>{
+        BufferLeaseBinding({
             let mut buf = cache
                 .lease(BufferInfo::new_mappable(
                         (std::mem::size_of::<Vert>() * self.verts.len()) as u64,
@@ -106,11 +106,11 @@ impl Mesh {
                 )).unwrap();
             Buffer::copy_from_slice(buf.get_mut().unwrap(), 0, bytemuck::cast_slice(&self.verts));
             buf
-        }))
+        })
     }
 
-    pub fn upload_indices(&self, cache: &mut HashPool) -> Option<BufferLeaseBinding<ArcK>>{
-        Some(BufferLeaseBinding({
+    pub fn upload_indices(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK>{
+        BufferLeaseBinding({
             let mut buf = cache
                 .lease(BufferInfo::new_mappable(
                         (std::mem::size_of::<u32>() * self.indices.len()) as u64,
@@ -123,6 +123,6 @@ impl Mesh {
                 bytemuck::cast_slice(&self.indices),
             );
             buf
-        }))
+        })
     }
 }

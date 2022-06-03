@@ -22,19 +22,23 @@ struct BVHNode{
 struct Intersection{
     Vert vert;
     vec3 uvt;
-    uint blas_id;
+    //uint blas_id;
+    //uint index_id;
     bool intersected;
 };
 
-layout(set = 0, binding = 0) buffer BVH{
+layout(set = 0, binding = 0) buffer BLAS{
     BVHNode nodes[];
 }blas[];
 layout(set = 0, binding = 1) buffer Verts{
     Vert verts[];
-};
+}tverts[];
 layout(set = 0, binding = 2) buffer Indices{
     uint indices[];
-};
+}tindices[];
+layout(set = 0, binding = 3) buffer TLAS{
+    BVHNode nodes[];
+}tlas;
 
 layout(push_constant) uniform PushConstants{
     uint width;
@@ -111,18 +115,18 @@ vec3 triangle_uvt(Ray ray, vec3 v0, vec3 v1, vec3 v2){
 // Ray tracing shader:
 //============================================================
 Intersection intersection(Ray ray, uint blas_id, uint index_id){
-    Vert v0 = verts[indices[index_id + 0]];
-    Vert v1 = verts[indices[index_id + 1]];
-    Vert v2 = verts[indices[index_id + 2]];
+    Vert v0 = tverts[blas_id].verts[tindices[blas_id].indices[index_id + 0]];
+    Vert v1 = tverts[blas_id].verts[tindices[blas_id].indices[index_id + 1]];
+    Vert v2 = tverts[blas_id].verts[tindices[blas_id].indices[index_id + 2]];
     vec3 uvt = triangle_uvt(ray, v0.pos.xyz, v1.pos.xyz, v2.pos.xyz);
     if(uvt.x + uvt.y <= 1 && uvt.x >= 0 && uvt.y >= 0){
         vec4 pos_int = mix2(v0.pos, v1.pos, v2.pos, uvt.x, uvt.y);
         vec4 color_int = mix2(v0.color, v1.color, v2.color, uvt.x, uvt.y);
         Vert vert_int = Vert(pos_int, color_int);
-        return Intersection(vert_int, uvt, blas_id, true);
+        return Intersection(vert_int, uvt, true);
     }
     else{
-        return Intersection(v0, uvt, blas_id, false);
+        return Intersection(v0, uvt, false);
     }
 }
 
@@ -138,7 +142,7 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
     return RayPayload(ray, vec4(0., 0., 0., 0.), 1.);
 }
 
-RayPayload closest_hit(Vert hit, RayPayload ray, uint blas_id){
+RayPayload closest_hit(Vert hit, RayPayload ray){
     return RayPayload(ray.ray, vec4(vec3(length(hit.pos.xyz - ray.ray.pos.xyz)/10.), 1.), 0.0);
     //return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
 }
@@ -168,41 +172,118 @@ void main(){
     RayPayload ray = ray_gen(vec2(float(x), float(y)), z);
     uint ray_num = 0;
     uint bvh_count = 0;
+    uint blas_id = 0;
 
     while(ray_num < RAY_COUNT){
-        // Start at root node.
-        uint blas_id = 0;
-        Intersection closest_inter = Intersection(vert_default, vec3(0., 0., 1./0.), 0, false);
-        while(bvh_count < BVH_LIMIT){
-            BVHNode node = blas[0].nodes[blas_id];
-            if(intersects_aabb(ray.ray, node.min, node.max)){
-                if(node.ty == TY_NODE){
-                    // Traverse left nodes
-                    blas_id++;
+        Intersection closest_inter = Intersection(vert_default, vec3(0., 0., 1./0.), false);
+        // Start at root node of tlas.
+        uint tnode_idx = 0;
+        //==============================
+        // Start Traverse tlas:
+        //==============================
+        while(true){
+            BVHNode tnode = tlas.nodes[tnode_idx];
+            if(intersects_aabb(ray.ray, tnode.min, tnode.max)){
+                if(tnode.ty == TY_NODE){
+                    tnode_idx ++;
                 }
-                else if(node.ty == TY_LEAF){
-                    Intersection inter = intersection(ray.ray, blas_id, node.right);
-                    if (inter.intersected && inter.uvt.z < closest_inter.uvt.z && anyhit(inter)){
-                        closest_inter = inter;
+                else if (tnode.ty == TY_LEAF){
+
+                    //==============================
+                    // Start Traverse blas:
+                    //==============================
+
+                    uint bnode_idx = 0;
+                    while(true){
+                        BVHNode bnode = blas[tnode.right].nodes[bnode_idx];
+                        if(intersects_aabb(ray.ray, bnode.min, bnode.max)){
+                            if(bnode.ty == TY_NODE){
+                                bnode_idx++;
+                            }
+                            else if(bnode.ty == TY_LEAF){
+                                Intersection inter = intersection(ray.ray, tnode.right, bnode.right);
+                                if(inter.intersected && inter.uvt.z < closest_inter.uvt.z && anyhit(inter)){
+                                    closest_inter = inter;
+                                }
+
+                                if (bnode.miss == 0){
+                                    break;
+                                }
+
+                                bnode_idx = bnode.miss;
+                            }
+                        }
+                        else{
+                            if(bnode.miss == 0){
+                                break;
+                            }
+
+                            bnode_idx = bnode.miss;
+                        }
                     }
-                    // Break if we missed and the node is a right most node.
-                    if (node.miss == 0){
+                    //==============================
+                    // End Traverse blas:
+                    //==============================
+
+                    if (tnode.miss == 0){
                         break;
                     }
-                    // Goto miss node either way. Because we don't know if ther could be a closer hit.
-                    blas_id = node.miss;
+
+                    tnode_idx = tnode.miss; 
                 }
             }
             else{
-                // break if we have missed and the node is a right most node.
-                if (node.miss == 0){
+                if(tnode.miss == 0){
                     break;
                 }
-                // If we missed the aabb with the ray we go to the miss node.
-                blas_id = node.miss;
+
+                tnode_idx = tnode.miss;
+            }
+        }
+        //==============================
+        // End Traverse tlas:
+        //==============================
+        if (closest_inter.intersected == true){
+            ray = closest_hit(closest_inter.vert, ray);
+        }
+        else{
+            // There has not been any hit so we return the miss color.
+            ray = miss(ray);
+            break;
+        }
+        ray_num++;
+        /*
+        uint bnode_idx = 0;
+        while(bvh_count < BVH_LIMIT){
+            BVHNode bnode = blas[0].nodes[bnode_idx];
+            if(intersects_aabb(ray.ray, bnode.min, bnode.max)){
+                if(bnode.ty == TY_NODE){
+                    // Traverse left bnodes
+                    bnode_idx++;
+                }
+                else if(bnode.ty == TY_LEAF){
+                    Intersection inter = intersection(ray.ray, blas_id, bnode.right);
+                    if (inter.intersected && inter.uvt.z < closest_inter.uvt.z && anyhit(inter)){
+                        closest_inter = inter;
+                    }
+                    // Break if we missed and the bnode is a right most bnode.
+                    if (bnode.miss == 0){
+                        break;
+                    }
+                    // Goto miss bnode either way. Because we don't know if ther could be a closer hit.
+                    bnode_idx = bnode.miss;
+                }
+            }
+            else{
+                // break if we have missed and the bnode is a right most bnode.
+                if (bnode.miss == 0){
+                    break;
+                }
+                // If we missed the aabb with the ray we go to the miss bnode.
+                bnode_idx = bnode.miss;
             }
             bvh_count++;
-            // TODO: add Safeguard for the case that blas_id >= blas_num.
+            // TODO: add Safeguard for the case that bnode_idx >= blas_num.
             // This should not happen if the bvh has been generated corectly but a check would be good just in case.
         }
         if (closest_inter.intersected == true){
@@ -214,6 +295,7 @@ void main(){
             break;
         }
         ray_num++;
+        */
     }
 
     //imageAtomicAdd(dst, ivec2(x, y), vec4(ray.color)/float(num_paths))
