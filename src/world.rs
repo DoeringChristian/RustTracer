@@ -1,5 +1,7 @@
-use std::fmt::Debug;
+use std::borrow::Borrow;
+use std::{fmt::Debug, borrow::BorrowMut};
 use std::path::Path;
+use std::ops::{Deref, DerefMut};
 
 use archery::*;
 use screen_13::prelude_arc::*;
@@ -81,9 +83,39 @@ impl WorldBinding{
     }
 }
 
+pub struct RefMut<'w>{
+    world: &'w mut World,
+}
+
+impl<'w> Deref for RefMut<'w>{
+    type Target = World;
+
+    fn deref(&self) -> &Self::Target {
+        self.world
+    }
+}
+
+impl<'w> DerefMut for RefMut<'w>{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.world
+    }
+}
+
+impl<'w> Drop for RefMut<'w>{
+    fn drop(&mut self) {
+        self.world.create_bvh()
+    }
+}
+
 pub struct World {
     pub models: Vec<Model>,
     pub bvh: Option<GlslBVH>,
+}
+
+impl World{
+    pub fn borrow_mut(&mut self) -> RefMut{
+        RefMut{world: self}
+    }
 }
 
 impl World {

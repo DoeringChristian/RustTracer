@@ -1,5 +1,6 @@
 use screen_13::prelude_arc::*;
 use screen_13_fx::prelude_arc::*;
+use screen_13_egui::prelude_arc::*;
 
 mod aabb;
 mod bvh;
@@ -34,10 +35,9 @@ fn main() {
     pretty_env_logger::init();
 
     let screen_13 = EventLoop::new().debug(true).build().unwrap();
-    //let mut presenter = GraphicPresenter::new(&screen_13.device).unwrap();
-    //let presenter = Presenter::new(&screen_13.device);
     let presenter = GraphicPresenter::new(&screen_13.device).unwrap();
     let mut cache = HashPool::new(&screen_13.device);
+    let mut egui = Egui::new(&screen_13.device, screen_13.window());
 
     let cppl = screen_13.new_compute_pipeline(ComputePipelineInfo::new(
         inline_spirv::include_spirv!("src/shaders/trace.glsl", comp, vulkan1_2).as_slice(),
@@ -95,6 +95,12 @@ fn main() {
                 render_graph.copy_image_to_buffer(image_node, image_buffer_node);
 
                 presenter.present_image(&mut render_graph, image_node, frame.swapchain_image);
+
+                egui.run(frame.window, frame.events, frame.swapchain_image, &mut render_graph, |ctx|{
+                    egui::Window::new("Info").show(ctx, |ui|{
+                        ui.label(format!("dt: {:.4}", frame.dt));
+                    });
+                });
 
                 world_binding = Some(world_node.unbind(&mut render_graph));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
