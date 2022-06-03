@@ -114,6 +114,10 @@ vec3 triangle_uvt(Ray ray, vec3 v0, vec3 v1, vec3 v2){
 //============================================================
 // Ray tracing shader:
 //============================================================
+
+//===============================
+// Intersection Shader:
+//===============================
 Intersection intersection(Ray ray, uint blas_id, uint index_id){
     Vert v0 = tverts[blas_id].verts[tindices[blas_id].indices[index_id + 0]];
     Vert v1 = tverts[blas_id].verts[tindices[blas_id].indices[index_id + 1]];
@@ -130,6 +134,9 @@ Intersection intersection(Ray ray, uint blas_id, uint index_id){
     }
 }
 
+//===============================
+// Ray Generation:
+//===============================
 RayPayload ray_gen(vec2 screen_pos, uint ray_num){
     uint z = gl_GlobalInvocationID.z;
     // Offset at random in range (-0.5, 0.5)
@@ -142,15 +149,24 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
     return RayPayload(ray, vec4(0., 0., 0., 0.), 1.);
 }
 
+//===============================
+// Closest Hit shader:
+//===============================
 RayPayload closest_hit(Vert hit, RayPayload ray){
     return RayPayload(ray.ray, vec4(vec3(length(hit.pos.xyz - ray.ray.pos.xyz)/10.), 1.), 0.0);
     //return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
 }
 
+//===============================
+// Miss shader:
+//===============================
 RayPayload miss(RayPayload ray){
     return RayPayload(ray.ray, vec4(0., 1., 0., 1.), 0.);
 }
 
+//===============================
+// Any Hit shader:
+//===============================
 bool anyhit(Intersection inter){
     return true;
 }
@@ -183,7 +199,7 @@ void main(){
         //==============================
         while(true){
             BVHNode tnode = tlas.nodes[tnode_idx];
-            // Test for intersections in the tals
+            // Test for intersections in the tlas
             if(intersects_aabb(ray.ray, tnode.min, tnode.max)){
                 if(tnode.ty == TY_NODE){
                     // left most nodes are at i+1 because the tree is safed in pre order
