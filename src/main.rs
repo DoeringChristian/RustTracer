@@ -82,37 +82,6 @@ impl Mesh {
 }
 
 fn main() {
-    let verts = vec![
-        Vert {
-            pos: [0., 0., 1., 1.],
-            color: [0., 0., 0., 1.],
-        },
-        Vert {
-            pos: [1., 0., 0., 1.],
-            color: [0., 0., 0., 1.],
-        },
-        Vert {
-            pos: [0., 1., 0., 1.],
-            color: [0., 0., 0., 1.],
-        },
-    ];
-    let indices = vec![0, 1, 2];
-
-    let mesh = Mesh { verts, indices };
-
-    let bvh =
-        GlslBVH::build_buckets_16(
-            (0..mesh.indices.len() / 3)
-                .into_iter()
-                .map(|i| {
-                    IndexedAABB {
-                        index: i * 3,
-                        aabb: mesh.get_tri(i * 3).into(),
-                    }
-                }),
-        );
-    bvh.print_rec(0, &mut String::from(""));
-
     let suzanne = tobj::load_obj("src/assets/suzanne.obj", &tobj::LoadOptions::default())
         .unwrap()
         .0;

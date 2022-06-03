@@ -262,8 +262,11 @@ impl<Node: BVHNode> BVH<Node> {
 
             // Accumulate the bounding boxes of the buffers for the left and right side. This gives
             // linear speed.
-            let mut l_bucket_aabb_acc = vec![AABB::empty(); N-1];
-            let mut r_bucket_aabb_acc = vec![AABB::empty(); N-1];
+            // We only need N-1 bucket_aabb_acc but rust does not allow for subtracting from
+            // contants.
+            // Also we get ca. 2ms from using constant arays vs vectors.
+            let mut l_bucket_aabb_acc = [AABB::empty(); N];
+            let mut r_bucket_aabb_acc = [AABB::empty(); N];
             let mut l_aabb = AABB::empty();
             let mut r_aabb = AABB::empty();
             for i in 0..(N - 1) {
@@ -471,33 +474,41 @@ mod test {
     pub fn test_suzanne_8() {
         let mesh = load_suzanne();
 
-        {
-            time_test::time_test!("build_buckets_8");
-            for _ in 0..1 {
-                GlslBVH::build_buckets_8(
-                    mesh.tris
-                        .iter()
-                        .enumerate()
-                        .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
-                );
-            }
+        use std::time::Instant;
+        let now = Instant::now();
+
+        let n = 10;
+
+        for _ in 0..n {
+            GlslBVH::build_buckets_8(
+                mesh.tris
+                .iter()
+                .enumerate()
+                .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
+            );
         }
+        let elapsed = now.elapsed();
+        println!("Time per construction: {:.2?}", elapsed.div_f32(n as f32));
     }
 
     #[test]
     pub fn test_suzanne_16() {
         let mesh = load_suzanne();
 
-        {
-            time_test::time_test!("build_buckets_16");
-            for _ in 0..1 {
-                GlslBVH::build_buckets_16(
-                    mesh.tris
-                        .iter()
-                        .enumerate()
-                        .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
-                );
-            }
+        use std::time::Instant;
+        let now = Instant::now();
+
+        let n = 100;
+
+        for _ in 0..n {
+            GlslBVH::build_buckets_16(
+                mesh.tris
+                .iter()
+                .enumerate()
+                .map(|(i, tri)| (i, mesh.get_for_tri(tri).into())),
+            );
         }
+        let elapsed = now.elapsed();
+        println!("Time per construction: {:.2?}", elapsed.div_f32(n as f32));
     }
 }
