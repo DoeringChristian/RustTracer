@@ -10,6 +10,7 @@ mod trace_ppl;
 mod mesh;
 mod model;
 mod world;
+mod material;
 
 use mesh::*;
 use glsl_bvh::*;
@@ -26,7 +27,7 @@ pub struct PushConstants{
 
 fn main() {
     let mut world = World::new();
-    world.append_obj("src/assets/test_multi.obj");
+    world.load_obj("src/assets/test_multi.obj");
 
     // ===========
     //  Rendering

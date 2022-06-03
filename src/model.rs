@@ -44,9 +44,9 @@ impl Model {
         BufferLeaseBinding({
             let mut buf = cache
                 .lease(BufferInfo::new_mappable(
-                        (std::mem::size_of::<GlslBVHNode>() * self.bvh.as_ref().unwrap().nodes().len())
+                    (std::mem::size_of::<GlslBVHNode>() * self.bvh.as_ref().unwrap().nodes().len())
                         as u64,
-                        vk::BufferUsageFlags::STORAGE_BUFFER,
+                    vk::BufferUsageFlags::STORAGE_BUFFER,
                 ))
                 .unwrap();
             Buffer::copy_from_slice(

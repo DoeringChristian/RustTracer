@@ -6,6 +6,7 @@ use std::ops::{Deref, DerefMut};
 use archery::*;
 use screen_13::prelude_arc::*;
 
+use crate::material::*;
 use crate::{
     aabb::IndexedAABB,
     glsl_bvh::{GlslBVH, GlslBVHNode},
@@ -17,6 +18,7 @@ pub struct WorldNode {
     pub indices: Vec<BufferLeaseNode>,
     pub blas: Vec<BufferLeaseNode>,
     pub tlas: BufferLeaseNode,
+    pub materials: BufferLeaseNode,
 }
 
 impl WorldNode{
@@ -26,16 +28,19 @@ impl WorldNode{
             indices,
             blas,
             tlas,
+            materials,
         } = self;
         let vertices = vertices.into_iter().map(|v| rgraph.unbind_node(v)).collect::<Vec<_>>();
         let indices = indices.into_iter().map(|i| rgraph.unbind_node(i)).collect::<Vec<_>>();
         let blas = blas.into_iter().map(|b| rgraph.unbind_node(b)).collect::<Vec<_>>();
         let tlas = rgraph.unbind_node(tlas);
+        let materials = rgraph.unbind_node(materials);
         WorldBinding{
             vertices,
             indices,
             blas,
             tlas,
+            materials,
         }
     }
 
@@ -50,6 +55,7 @@ impl WorldNode{
             pass_ref = pass_ref.read_descriptor((0, 2, [i as u32]), *indices);
         }
         pass_ref = pass_ref.read_descriptor((0, 3), self.tlas);
+        pass_ref = pass_ref.read_descriptor((0, 4), self.materials);
         pass_ref
     }
 }
@@ -60,6 +66,7 @@ pub struct WorldBinding {
     // Bottom level acceleration structure.
     pub blas: Vec<BufferLeaseBinding<ArcK>>,
     pub tlas: BufferLeaseBinding<ArcK>,
+    pub materials: BufferLeaseBinding<ArcK>,
 }
 
 impl WorldBinding{
@@ -69,67 +76,49 @@ impl WorldBinding{
             indices,
             blas,
             tlas,
+            materials,
         } = self;
         let vertices = vertices.into_iter().map(|v| rgraph.bind_node(v)).collect::<Vec<_>>();
         let indices = indices.into_iter().map(|i| rgraph.bind_node(i)).collect::<Vec<_>>();
         let blas = blas.into_iter().map(|b| rgraph.bind_node(b)).collect::<Vec<_>>();
         let tlas = rgraph.bind_node(tlas);
+        let materials = rgraph.bind_node(materials);
         WorldNode{
             vertices,
             indices,
             blas,
             tlas,
+            materials,
         }
     }
 }
 
-pub struct RefMut<'w>{
-    world: &'w mut World,
-}
-
-impl<'w> Deref for RefMut<'w>{
-    type Target = World;
-
-    fn deref(&self) -> &Self::Target {
-        self.world
-    }
-}
-
-impl<'w> DerefMut for RefMut<'w>{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.world
-    }
-}
-
-impl<'w> Drop for RefMut<'w>{
-    fn drop(&mut self) {
-        self.world.create_bvh()
-    }
-}
 
 pub struct World {
     pub models: Vec<Model>,
+    pub materials: Vec<Material>,
     pub bvh: Option<GlslBVH>,
-}
-
-impl World{
-    pub fn borrow_mut(&mut self) -> RefMut{
-        RefMut{world: self}
-    }
 }
 
 impl World {
     pub fn new() -> Self {
         Self {
             models: Vec::default(),
+            materials: Vec::default(),
             bvh: None,
         }
     }
-    pub fn append_obj(&mut self, path: impl AsRef<Path> + Debug) {
-        let models = tobj::load_obj(path, &tobj::LoadOptions::default())
-            .unwrap()
-            .0;
-        self.models = models.iter().map(|m| Model::from_obj_model(m)).collect();
+    pub fn load_obj(&mut self, path: impl AsRef<Path> + Debug) {
+        let obj = tobj::load_obj(path, &tobj::LoadOptions::default()).unwrap();
+
+        self.models = obj.0.iter().map(|m| Model::from_obj_model(m)).collect();
+
+        self.materials = obj.1.unwrap_or_default().iter().map(|m|{
+            Material{
+                color: [m.diffuse[0], m.diffuse[1], m.diffuse[2], 1.],
+            }
+        }).collect();
+        
         self.create_bvh();
     }
     pub fn create_bvh(&mut self) {
@@ -171,12 +160,29 @@ impl World {
             );
             buf
         });
+        let materials = BufferLeaseBinding({
+            let mut buf = cache
+                .lease(BufferInfo::new_mappable(
+                    (std::mem::size_of::<Material>() * self.models.len())
+                        as u64,
+                    vk::BufferUsageFlags::STORAGE_BUFFER,
+                ))
+                .unwrap();
+            Buffer::copy_from_slice(
+                buf.get_mut().unwrap(),
+                0,
+                bytemuck::cast_slice(&self.materials),
+            );
+            buf
+        });
+
 
         WorldBinding {
             vertices,
             indices,
             blas,
             tlas,
+            materials,
         }
     }
 }

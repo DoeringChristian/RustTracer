@@ -4,9 +4,12 @@
 struct Vert{
     vec4 pos;
     vec4 color;
+    vec4 normal;
+    uint has_mat;
+    uint mat_idx;
 };
 
-const Vert vert_default = Vert(vec4(0., 0., 0., 1.), vec4(0., 0., 0., 1.));
+const Vert vert_default = Vert(vec4(0., 0., 0., 1.), vec4(0., 0., 0., 1.), vec4(0., 0., 0., 1.), 0, 0);
 
 #define TY_NODE 0
 #define TY_LEAF 1
@@ -17,6 +20,10 @@ struct BVHNode{
     uint right;
     uint miss;
     uint _pad;
+};
+
+struct Material{
+    vec4 color;
 };
 
 struct Intersection{
@@ -39,6 +46,10 @@ layout(set = 0, binding = 2) buffer Indices{
 layout(set = 0, binding = 3) buffer TLAS{
     BVHNode nodes[];
 }tlas;
+
+layout(set = 0, binding = 4) buffer MaterialBlock{
+    Material materials[];
+};
 
 layout(push_constant) uniform PushConstants{
     uint width;
@@ -126,7 +137,8 @@ Intersection intersection(Ray ray, uint blas_id, uint index_id){
     if(uvt.x + uvt.y <= 1 && uvt.x >= 0 && uvt.y >= 0){
         vec4 pos_int = mix2(v0.pos, v1.pos, v2.pos, uvt.x, uvt.y);
         vec4 color_int = mix2(v0.color, v1.color, v2.color, uvt.x, uvt.y);
-        Vert vert_int = Vert(pos_int, color_int);
+        vec4 normal_int = mix2(v0.normal, v1.normal, v2.normal, uvt.x, uvt.y);
+        Vert vert_int = Vert(pos_int, color_int, normal_int, v0.has_mat, v0.mat_idx);
         return Intersection(vert_int, uvt, true);
     }
     else{
@@ -153,6 +165,9 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
 // Closest Hit shader:
 //===============================
 RayPayload closest_hit(Vert hit, RayPayload ray){
+    if (hit.has_mat == 1){
+        return RayPayload(ray.ray, materials[hit.mat_idx].color, 1.);
+    }
     return RayPayload(ray.ray, vec4(vec3(length(hit.pos.xyz - ray.ray.pos.xyz)/10.), 1.), 0.0);
     //return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
 }

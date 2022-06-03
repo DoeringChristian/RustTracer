@@ -9,6 +9,10 @@ use archery::*;
 pub struct Vert {
     pub pos: [f32; 4],
     pub color: [f32; 4],
+    pub normal: [f32; 4],
+    pub has_mat: u32,
+    pub mat_idx: u32,
+    _pad: [u32; 2],
 }
 
 impl From<[Vert; 3]> for AABB {
@@ -68,6 +72,15 @@ impl Mesh {
                     *mesh.vertex_color.get(i * 3 + 2).unwrap_or(&0.),
                     1.,
                 ],
+                normal: [
+                    *mesh.normals.get(i * 3).unwrap_or(&0.),
+                    *mesh.normals.get(i * 3 + 1).unwrap_or(&0.),
+                    *mesh.normals.get(i * 3 + 2).unwrap_or(&0.),
+                    1.,
+                ],
+                has_mat: mesh.material_id.is_some() as u32,
+                mat_idx: mesh.material_id.unwrap_or(0) as u32,
+                _pad: [0; 2],
             })
         .collect();
 
