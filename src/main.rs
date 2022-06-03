@@ -1,6 +1,5 @@
 use screen_13::prelude_arc::*;
 use screen_13_fx::prelude_arc::*;
-use std::ops::Range;
 
 mod aabb;
 mod bvh;
@@ -11,14 +10,9 @@ mod mesh;
 mod model;
 mod world;
 
-use aabb::*;
-use bvh::*;
 use mesh::*;
 use glsl_bvh::*;
 //use presenter::*;
-use screen_13_fx::prelude_arc::*;
-use trace_ppl::*;
-use model::*;
 use world::*;
 
 #[repr(C)]

@@ -9,8 +9,10 @@ edition = "2021"
 tobj = "*"
 time-test = "*"
 winit = "0.26"
-screen-13 = {path = "../screen-13"}
-screen-13-fx = {path = "../screen-13/contrib/screen-13-fx"}
+#screen-13 = {path = "../screen-13"}
+#screen-13-fx = {path = "../screen-13/contrib/screen-13-fx"}
+screen-13 = { git = "https://github.com/attackgoat/screen-13.git" }
+screen-13-fx = { git = "https://github.com/attackgoat/screen-13.git" }
 gpu-allocator = { git = "https://github.com/Traverse-Research/gpu-allocator.git", branch = "ash-0.37" } # https://github.com/Traverse-Research/gpu-allocator/pull/104
 #raw-window-handle = "0.4"
 bytemuck = {version = "1.9", features = ["derive"]}
