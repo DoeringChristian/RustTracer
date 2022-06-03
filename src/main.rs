@@ -6,13 +6,18 @@ mod bvh;
 mod glsl_bvh;
 mod presenter;
 mod trace_ppl;
+mod mesh;
+mod model;
+mod world;
 
 use aabb::*;
 use bvh::*;
+use mesh::*;
 use glsl_bvh::*;
 use presenter::*;
 use screen_13_fx::prelude_arc::*;
 use trace_ppl::*;
+use model::*;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -22,108 +27,17 @@ pub struct PushConstants{
     pub num_paths: u32,
 }
 
-pub trait Pos3 {
-    fn pos3(&self) -> [f32; 3];
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Vert {
-    pub pos: [f32; 4],
-    pub color: [f32; 4],
-}
-
-impl Pos3 for Vert {
-    fn pos3(&self) -> [f32; 3] {
-        [self.pos[0], self.pos[1], self.pos[2]]
-    }
-}
-
-impl From<[Vert; 3]> for AABB {
-    fn from(src: [Vert; 3]) -> Self {
-        let v1 = src[0].pos3();
-        let v2 = src[1].pos3();
-        let v3 = src[2].pos3();
-        AABB {
-            min: [
-                v1[0].min(v2[0]).min(v3[0]),
-                v1[1].min(v2[1]).min(v3[1]),
-                v1[2].min(v2[2]).min(v3[2]),
-            ],
-            max: [
-                v1[0].max(v2[0]).max(v3[0]),
-                v1[1].max(v2[1]).max(v3[1]),
-                v1[2].max(v2[2]).max(v3[2]),
-            ],
-        }
-    }
-}
-
-pub struct Mesh {
-    pub verts: Vec<Vert>,
-    pub indices: Vec<u32>,
-}
-
-impl Mesh {
-    pub fn get_tri(&self, index: usize) -> [Vert; 3] {
-        [
-            self.verts[self.indices[index + 0] as usize],
-            self.verts[self.indices[index + 1] as usize],
-            self.verts[self.indices[index + 2] as usize],
-        ]
-    }
-    pub fn get_for_tri(&self, indices: &[usize; 3]) -> [Vert; 3] {
-        [
-            self.verts[indices[0]],
-            self.verts[indices[1]],
-            self.verts[indices[2]],
-        ]
-    }
-}
-
 fn main() {
-    let suzanne = tobj::load_obj("src/assets/suzanne.obj", &tobj::LoadOptions::default())
-        .unwrap()
-        .0;
+    let model = Model::load_obj("src/assets/suzanne.obj");
 
-    let verts = (0..(suzanne[0].mesh.positions.len() / 3))
-        .into_iter()
-        .map(|i| Vert {
-            pos: [
-                suzanne[0].mesh.positions[i * 3],
-                suzanne[0].mesh.positions[i * 3 + 1],
-                suzanne[0].mesh.positions[i * 3 + 2],
-                0.,
-            ],
-            color: [
-                *suzanne[0].mesh.vertex_color.get(i * 3).unwrap_or(&0.),
-                *suzanne[0].mesh.vertex_color.get(i * 3 + 1).unwrap_or(&0.),
-                *suzanne[0].mesh.vertex_color.get(i * 3 + 2).unwrap_or(&0.),
-                1.,
-            ],
-        })
-        .collect();
+    //let bvh = model.create_bvh_glsl();
 
-    let indices = (0..(suzanne[0].mesh.indices.len()))
-        .into_iter()
-        .map(|i| suzanne[0].mesh.indices[i] as u32)
-        .collect();
-
-    let mesh = Mesh { verts, indices };
-
-    let bvh =
-        GlslBVH::build_buckets_16(
-            (0..mesh.indices.len() / 3)
-                .into_iter()
-                .map(|i| IndexedAABB {
-                    index: i * 3,
-                    aabb: mesh.get_tri(i * 3).into(),
-                }),
-        );
+    /*
     println!("len: {}", bvh.nodes().len());
     println!("root node: {:#?}", bvh.nodes()[0]);
     println!("l: {:#?}", bvh.nodes()[1]);
     println!("r: {:#?}", bvh.nodes()[bvh.nodes()[0].right as usize]);
+    */
 
     // ===========
     //  Rendering
@@ -141,42 +55,9 @@ fn main() {
     ));
 
     println!("test");
-
-    let mut index_buffer = Some(BufferLeaseBinding({
-        let mut buf = cache
-            .lease(BufferInfo::new_mappable(
-                (std::mem::size_of::<u32>() * mesh.indices.len()) as u64,
-                vk::BufferUsageFlags::STORAGE_BUFFER,
-            ))
-            .expect("Could not create Index Buffer");
-        //println!("{}", buf.as_ref().info().size);
-        Buffer::copy_from_slice(
-            buf.get_mut().expect("Could not get Index Buffer"),
-            0,
-            bytemuck::cast_slice(&mesh.indices),
-        );
-        buf
-    }));
-    let mut vertex_buffer = Some(BufferLeaseBinding({
-        let mut buf = cache
-            .lease(BufferInfo::new_mappable(
-                (std::mem::size_of::<Vert>() * mesh.verts.len()) as u64,
-                vk::BufferUsageFlags::STORAGE_BUFFER,
-            ))
-            .unwrap();
-        Buffer::copy_from_slice(buf.get_mut().unwrap(), 0, bytemuck::cast_slice(&mesh.verts));
-        buf
-    }));
-    let mut bvh_buffer = Some(BufferLeaseBinding({
-        let mut buf = cache
-            .lease(BufferInfo::new_mappable(
-                (std::mem::size_of::<GlslBVHNode>() * bvh.nodes().len()) as u64,
-                vk::BufferUsageFlags::STORAGE_BUFFER,
-            ))
-            .unwrap();
-        Buffer::copy_from_slice(buf.get_mut().unwrap(), 0, bytemuck::cast_slice(bvh.nodes()));
-        buf
-    }));
+    let mut index_buffer = model.upload_indices(&mut cache);
+    let mut vertex_buffer = model.upload_verts(&mut cache);
+    let mut bvh_buffer = model.upload_bvh(&mut cache);
 
     let trace_extent = [100, 100, 1];
 

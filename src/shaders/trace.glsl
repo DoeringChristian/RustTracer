@@ -28,7 +28,7 @@ struct Intersection{
 
 layout(set = 0, binding = 0) buffer BVH{
     BVHNode nodes[];
-}bvh[];
+}blas[];
 layout(set = 0, binding = 1) buffer Verts{
     Vert verts[];
 };
@@ -174,7 +174,7 @@ void main(){
         uint blas_id = 0;
         Intersection closest_inter = Intersection(vert_default, vec3(0., 0., 1./0.), 0, false);
         while(bvh_count < BVH_LIMIT){
-            BVHNode node = bvh[0].nodes[blas_id];
+            BVHNode node = blas[0].nodes[blas_id];
             if(intersects_aabb(ray.ray, node.min, node.max)){
                 if(node.ty == TY_NODE){
                     // Traverse left nodes
