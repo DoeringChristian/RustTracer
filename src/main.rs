@@ -47,7 +47,7 @@ fn main() {
     let mut world_binding = Some(world.upload(&mut cache));
     println!("test");
 
-    let trace_extent = [800, 600, 1];
+    let trace_extent = [800, 600, 2];
 
     let mut image_buffer = Some(BufferLeaseBinding({
         let buf = cache
@@ -90,7 +90,7 @@ fn main() {
                 tracer_pass
                     .record_compute(move |c| {
                         c.push_constants(bytemuck::cast_slice(&[push_constants]));
-                        c.dispatch(trace_extent[0], trace_extent[1], trace_extent[2]);
+                        c.dispatch(trace_extent[0], trace_extent[1], 1);
                     });
 
                 render_graph.copy_image_to_buffer(image_node, image_buffer_node);

@@ -166,7 +166,16 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
 //===============================
 RayPayload closest_hit(Vert hit, RayPayload ray){
     if (hit.has_mat == 1){
-        return RayPayload(ray.ray, materials[hit.mat_idx].color, 1.);
+        //vec4 ray_dir = vec4(reflect(ray.ray.dir.xyz, hit.normal.xyz), 1.);
+        vec4 ray_dir = ray.ray.dir;
+        vec4 ray_pos = hit.pos + ray.ray.dir * 0.001;
+        //vec4 ray_pos = hit.pos + hit.normal * 0.00001;
+        return RayPayload(
+            Ray(ray_pos, ray_dir),
+            //hit.normal * ray.refl  + ray.color, 
+            materials[hit.mat_idx].color * ray.refl  + ray.color, 
+            ray.refl * 1.
+        );
     }
     return RayPayload(ray.ray, vec4(vec3(length(hit.pos.xyz - ray.ray.pos.xyz)/10.), 1.), 0.0);
     //return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
