@@ -1,10 +1,11 @@
 use screen_13::prelude_arc::*;
+use screen_13_fx::prelude_arc::*;
 use std::ops::Range;
 
 mod aabb;
 mod bvh;
 mod glsl_bvh;
-mod presenter;
+//mod presenter;
 mod trace_ppl;
 mod mesh;
 mod model;
@@ -14,7 +15,7 @@ use aabb::*;
 use bvh::*;
 use mesh::*;
 use glsl_bvh::*;
-use presenter::*;
+//use presenter::*;
 use screen_13_fx::prelude_arc::*;
 use trace_ppl::*;
 use model::*;
@@ -40,7 +41,8 @@ fn main() {
 
     let screen_13 = EventLoop::new().debug(true).build().unwrap();
     //let mut presenter = GraphicPresenter::new(&screen_13.device).unwrap();
-    let presenter = Presenter::new(&screen_13.device);
+    //let presenter = Presenter::new(&screen_13.device);
+    let presenter = GraphicPresenter::new(&screen_13.device).unwrap();
     let mut cache = HashPool::new(&screen_13.device);
 
     let cppl = screen_13.new_compute_pipeline(ComputePipelineInfo::new(
@@ -50,7 +52,7 @@ fn main() {
     let mut world_binding = Some(world.upload(&mut cache));
     println!("test");
 
-    let trace_extent = [200, 200, 1];
+    let trace_extent = [800, 600, 1];
 
     let mut image_buffer = Some(BufferLeaseBinding({
         let buf = cache
@@ -98,16 +100,7 @@ fn main() {
 
                 render_graph.copy_image_to_buffer(image_node, image_buffer_node);
 
-                //render_graph.clear_color_image(frame.swapchain_image);
-                presenter.present(
-                    &mut render_graph,
-                    image_node,
-                    frame.swapchain_image,
-                    [
-                        frame.window.inner_size().width,
-                        frame.window.inner_size().height,
-                    ],
-                );
+                presenter.present_image(&mut render_graph, image_node, frame.swapchain_image);
 
                 world_binding = Some(world_node.unbind(&mut render_graph));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
