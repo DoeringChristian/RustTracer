@@ -30,17 +30,7 @@ pub struct PushConstants{
 
 fn main() {
     let mut world = World::new();
-    world.append_obj("src/assets/suzanne.obj");
-    let model = Model::load_obj("src/assets/suzanne.obj");
-
-    //let bvh = model.create_bvh_glsl();
-
-    /*
-    println!("len: {}", bvh.nodes().len());
-    println!("root node: {:#?}", bvh.nodes()[0]);
-    println!("l: {:#?}", bvh.nodes()[1]);
-    println!("r: {:#?}", bvh.nodes()[bvh.nodes()[0].right as usize]);
-    */
+    world.append_obj("src/assets/test_multi.obj");
 
     // ===========
     //  Rendering
@@ -60,7 +50,7 @@ fn main() {
     let mut world_binding = Some(world.upload(&mut cache));
     println!("test");
 
-    let trace_extent = [100, 100, 1];
+    let trace_extent = [200, 200, 1];
 
     let mut image_buffer = Some(BufferLeaseBinding({
         let buf = cache
@@ -84,11 +74,6 @@ fn main() {
                 };
 
                 let world_node = world_binding.take().unwrap().bind(&mut render_graph);
-                /*
-                let vertex_node = render_graph.bind_node(vertex_buffer.take().unwrap());
-                let index_node = render_graph.bind_node(index_buffer.take().unwrap());
-                let bvh_node = render_graph.bind_node(bvh_buffer.take().unwrap());
-                */
 
                 let image_buffer_node = render_graph.bind_node(image_buffer.take().unwrap());
                 let image_node = 
@@ -124,7 +109,6 @@ fn main() {
                     ],
                 );
 
-                //image = Some(render_graph.unbind_node(image_node));
                 world_binding = Some(world_node.unbind(&mut render_graph));
                 image_buffer = Some(render_graph.unbind_node(image_buffer_node));
                 render_graph.unbind_node(image_node);
