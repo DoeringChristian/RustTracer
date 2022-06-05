@@ -1,7 +1,7 @@
 
 use std::{path::Path, fmt::Debug};
 use crate::{aabb::*, bvh::{BVHNode, BVH}, glsl_bvh::GlslBVH};
-use screen_13::prelude_arc::*;
+use screen_13::prelude::*;
 use archery::*;
 
 #[repr(C)]
@@ -110,7 +110,7 @@ impl Mesh {
         )
     }
 
-    pub fn upload_verts(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK>{
+    pub fn upload_verts(&self, cache: &mut HashPool) -> BufferLeaseBinding{
         BufferLeaseBinding({
             let mut buf = cache
                 .lease(BufferInfo::new_mappable(
@@ -122,7 +122,7 @@ impl Mesh {
         })
     }
 
-    pub fn upload_indices(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK>{
+    pub fn upload_indices(&self, cache: &mut HashPool) -> BufferLeaseBinding{
         BufferLeaseBinding({
             let mut buf = cache
                 .lease(BufferInfo::new_mappable(

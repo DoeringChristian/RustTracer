@@ -1,10 +1,8 @@
-use std::borrow::Borrow;
-use std::{fmt::Debug, borrow::BorrowMut};
+use std::fmt::Debug;
 use std::path::Path;
-use std::ops::{Deref, DerefMut};
 
 use archery::*;
-use screen_13::prelude_arc::*;
+use screen_13::prelude::*;
 
 use crate::material::*;
 use crate::{
@@ -61,12 +59,12 @@ impl WorldNode{
 }
 
 pub struct WorldBinding {
-    pub vertices: Vec<BufferLeaseBinding<ArcK>>,
-    pub indices: Vec<BufferLeaseBinding<ArcK>>,
+    pub vertices: Vec<BufferLeaseBinding>,
+    pub indices: Vec<BufferLeaseBinding>,
     // Bottom level acceleration structure.
-    pub blas: Vec<BufferLeaseBinding<ArcK>>,
-    pub tlas: BufferLeaseBinding<ArcK>,
-    pub materials: BufferLeaseBinding<ArcK>,
+    pub blas: Vec<BufferLeaseBinding>,
+    pub tlas: BufferLeaseBinding,
+    pub materials: BufferLeaseBinding,
 }
 
 impl WorldBinding{

@@ -3,11 +3,11 @@ use inline_spirv::*;
 use screen_13::prelude_arc::*;
 
 pub struct Presenter {
-    rppl: SharedPointer<GraphicPipeline, ArcK>,
+    rppl: Arc<GraphicPipeline>,
 }
 impl Presenter {
-    pub fn new(device: &SharedPointer<Device, ArcK>) -> Self {
-        let rppl = SharedPointer::new(
+    pub fn new(device: &Arc<Device>) -> Self {
+        let rppl = Arc::new(
             GraphicPipeline::create(
                 device,
                 GraphicPipelineInfo::new(),
@@ -76,7 +76,7 @@ impl Presenter {
         &self,
         graph: &mut RenderGraph,
         image: impl Into<AnyImageNode>,
-        swapchain: SwapchainImageNode<ArcK>,
+        swapchain: SwapchainImageNode,
         size: [u32; 2],
     ) {
         let image = image.into();

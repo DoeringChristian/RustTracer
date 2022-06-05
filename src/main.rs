@@ -1,6 +1,6 @@
-use screen_13::prelude_arc::*;
-use screen_13_fx::prelude_arc::*;
-use screen_13_egui::prelude_arc::*;
+use screen_13::prelude::*;
+use screen_13_fx::*;
+use screen_13_egui::*;
 
 mod aabb;
 mod bvh;

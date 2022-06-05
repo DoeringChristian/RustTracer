@@ -1,6 +1,5 @@
-use archery::*;
-use screen_13::prelude_arc::*;
 use super::*;
+use std::sync::Arc;
 
 pub struct TracerExtent {
     pub width: u32,
@@ -9,11 +8,11 @@ pub struct TracerExtent {
 }
 
 pub struct Tracer {
-    pub cppl: SharedPointer<ComputePipeline, ArcK>,
+    pub cppl: Arc<ComputePipeline>,
     pub cache: HashPool,
-    pub index_buffer: Option<BufferLeaseBinding<ArcK>>,
-    pub vertex_buffer: Option<BufferLeaseBinding<ArcK>>,
-    pub bvh_buffer: Option<BufferLeaseBinding<ArcK>>,
+    pub index_buffer: Option<BufferLeaseBinding>,
+    pub vertex_buffer: Option<BufferLeaseBinding>,
+    pub bvh_buffer: Option<BufferLeaseBinding>,
 }
 
 impl Tracer {

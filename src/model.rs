@@ -6,7 +6,7 @@ use crate::glsl_bvh::GlslBVHNode;
 use crate::mesh::*;
 use crate::GlslBVH;
 use archery::*;
-use screen_13::prelude_arc::*;
+use screen_13::prelude::*;
 
 pub struct Model {
     mesh: Mesh,
@@ -34,13 +34,13 @@ impl Model {
         self.bvh.as_ref().unwrap().aabb()
     }
 
-    pub fn upload_verts(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK> {
+    pub fn upload_verts(&self, cache: &mut HashPool) -> BufferLeaseBinding {
         self.mesh.upload_verts(cache)
     }
-    pub fn upload_indices(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK> {
+    pub fn upload_indices(&self, cache: &mut HashPool) -> BufferLeaseBinding {
         self.mesh.upload_indices(cache)
     }
-    pub fn upload_bvh(&self, cache: &mut HashPool) -> BufferLeaseBinding<ArcK> {
+    pub fn upload_bvh(&self, cache: &mut HashPool) -> BufferLeaseBinding {
         BufferLeaseBinding({
             let mut buf = cache
                 .lease(BufferInfo::new_mappable(
