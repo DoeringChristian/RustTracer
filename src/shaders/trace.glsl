@@ -137,7 +137,9 @@ Intersection intersection(Ray ray, uint blas_id, uint index_id){
     if(uvt.x + uvt.y <= 1 && uvt.x >= 0 && uvt.y >= 0){
         vec4 pos_int = mix2(v0.pos, v1.pos, v2.pos, uvt.x, uvt.y);
         vec4 color_int = mix2(v0.color, v1.color, v2.color, uvt.x, uvt.y);
-        vec4 normal_int = mix2(v0.normal, v1.normal, v2.normal, uvt.x, uvt.y);
+        // generate normals.
+        //vec4 normal_int = mix2(v0.normal, v1.normal, v2.normal, uvt.x, uvt.y);
+        vec4 normal_int = vec4(normalize(cross(v0.pos.xyz - v1.pos.xyz, v0.pos.xyz - v2.pos.xyz)), 1.);
         Vert vert_int = Vert(pos_int, color_int, normal_int, v0.has_mat, v0.mat_idx);
         return Intersection(vert_int, uvt, true);
     }
@@ -166,8 +168,8 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
 //===============================
 RayPayload closest_hit(Vert hit, RayPayload ray){
     if (hit.has_mat == 1){
-        //vec4 ray_dir = vec4(reflect(ray.ray.dir.xyz, hit.normal.xyz), 1.);
-        vec4 ray_dir = ray.ray.dir;
+        vec4 ray_dir = vec4(reflect(ray.ray.dir.xyz, hit.normal.xyz), 1.);
+        //vec4 ray_dir = ray.ray.dir;
         vec4 ray_pos = hit.pos + ray.ray.dir * 0.001;
         //vec4 ray_pos = hit.pos + hit.normal * 0.00001;
         return RayPayload(
@@ -185,7 +187,7 @@ RayPayload closest_hit(Vert hit, RayPayload ray){
 // Miss shader:
 //===============================
 RayPayload miss(RayPayload ray){
-    return RayPayload(ray.ray, vec4(0., 1., 0., 1.), 0.);
+    return RayPayload(ray.ray, ray.color + ray.refl * vec4(0., 0., 0., 1.), 0.);
 }
 
 //===============================
