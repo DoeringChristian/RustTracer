@@ -35,8 +35,6 @@ fn main() {
     //  Rendering
     // ===========
 
-    trace!("World: {:#?}", world);
-
     let screen_13 = EventLoop::new().debug(true).build().unwrap();
     let presenter = GraphicPresenter::new(&screen_13.device).unwrap();
     let mut cache = HashPool::new(&screen_13.device);

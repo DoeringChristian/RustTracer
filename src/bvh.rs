@@ -213,7 +213,7 @@ impl<Node: BVHNode> BVH<Node> {
         if children.len() == 1 {
             dst.push(Node::new_leaf(p_aabb, children[0].index, pivot));
             dst.len() - 1
-        } /*else if children.len() == 2 {
+        } else if children.len() == 2 {
             // Fast track if there are only two children left.
             //
             let l_aabb = children[0].aabb;
@@ -226,7 +226,7 @@ impl<Node: BVHNode> BVH<Node> {
             let r_node_i = Self::buckets_pivot::<N>(dst, r_aabb, r_children, buckets, pivot);
             dst[node_i].set_right(r_node_i);
             node_i
-        }*/ else {
+        } else {
             // clear all buckets.
             // The buckets Vecs should not have any performance overhead since they probably
             // decreace in size only.
@@ -323,7 +323,6 @@ impl<Node: BVHNode> BVH<Node> {
             // Split the children at the children_split index.
             let (l_children, r_children) = children.split_at_mut(children_split);
             let node_i = dst.len();
-            println!("node_i: {:#?}, non_emtpy: {}, bucket_split: {}", node_i, count_non_empty, bucket_split);
             dst.push(Node::new_node(p_aabb, 0, pivot));
             let _l_node_i = Self::buckets_pivot::<N>(dst, l_aabb, l_children, buckets, node_i);
             let r_node_i = Self::buckets_pivot::<N>(dst, r_aabb, r_children, buckets, pivot);
