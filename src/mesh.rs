@@ -35,6 +35,7 @@ impl From<[Vert; 3]> for AABB {
     }
 }
 
+#[derive(Debug)]
 pub struct Mesh {
     pub verts: Vec<Vert>,
     pub indices: Vec<u32>,

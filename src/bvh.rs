@@ -213,7 +213,7 @@ impl<Node: BVHNode> BVH<Node> {
         if children.len() == 1 {
             dst.push(Node::new_leaf(p_aabb, children[0].index, pivot));
             dst.len() - 1
-        } else if children.len() == 2 {
+        } /*else if children.len() == 2 {
             // Fast track if there are only two children left.
             //
             let l_aabb = children[0].aabb;
@@ -226,7 +226,7 @@ impl<Node: BVHNode> BVH<Node> {
             let r_node_i = Self::buckets_pivot::<N>(dst, r_aabb, r_children, buckets, pivot);
             dst[node_i].set_right(r_node_i);
             node_i
-        } else {
+        }*/ else {
             // clear all buckets.
             // The buckets Vecs should not have any performance overhead since they probably
             // decreace in size only.
@@ -295,8 +295,8 @@ impl<Node: BVHNode> BVH<Node> {
             }
 
             // Extract the aabbs of the left and right children.
-            let l_abb = l_bucket_aabb_acc[bucket_split];
-            let r_abb = r_bucket_aabb_acc[bucket_split];
+            let mut l_aabb = l_bucket_aabb_acc[bucket_split];
+            let mut r_aabb = r_bucket_aabb_acc[bucket_split];
 
             // Fill children back from bucket into children slice.
             let mut child_index = 0;
@@ -316,14 +316,17 @@ impl<Node: BVHNode> BVH<Node> {
             // in the sampe place) we just split them in 2.
             if count_non_empty == 1 {
                 children_split = children.len() / 2;
+                l_aabb = children[0..children_split].iter().map(|c| c.aabb).fold(AABB::empty(), AABB::grow);
+                r_aabb = children[children_split..children.len()].iter().map(|c| c.aabb).fold(AABB::empty(), AABB::grow);
             }
 
             // Split the children at the children_split index.
             let (l_children, r_children) = children.split_at_mut(children_split);
             let node_i = dst.len();
+            println!("node_i: {:#?}, non_emtpy: {}, bucket_split: {}", node_i, count_non_empty, bucket_split);
             dst.push(Node::new_node(p_aabb, 0, pivot));
-            let _l_node_i = Self::buckets_pivot::<N>(dst, l_abb, l_children, buckets, node_i);
-            let r_node_i = Self::buckets_pivot::<N>(dst, r_abb, r_children, buckets, pivot);
+            let _l_node_i = Self::buckets_pivot::<N>(dst, l_aabb, l_children, buckets, node_i);
+            let r_node_i = Self::buckets_pivot::<N>(dst, r_aabb, r_children, buckets, pivot);
             dst[node_i].set_right(r_node_i);
             //dst[node_i].right = r_node_i as u32;
             //dst[node_i].miss = pivot as u32;

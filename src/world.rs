@@ -92,6 +92,7 @@ impl WorldBinding{
 }
 
 
+#[derive(Debug)]
 pub struct World {
     pub models: Vec<Model>,
     pub materials: Vec<Material>,

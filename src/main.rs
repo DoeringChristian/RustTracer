@@ -26,14 +26,16 @@ pub struct PushConstants{
 }
 
 fn main() {
+    pretty_env_logger::init();
     let mut world = World::new();
     world.load_obj("src/assets/test_multi.obj");
+
 
     // ===========
     //  Rendering
     // ===========
 
-    pretty_env_logger::init();
+    trace!("World: {:#?}", world);
 
     let screen_13 = EventLoop::new().debug(true).build().unwrap();
     let presenter = GraphicPresenter::new(&screen_13.device).unwrap();
@@ -47,7 +49,7 @@ fn main() {
     let mut world_binding = Some(world.upload(&mut cache));
     println!("test");
 
-    let trace_extent = [800, 600, 2];
+    let trace_extent = [800, 600, 1];
 
     let mut image_buffer = Some(BufferLeaseBinding({
         let buf = cache
@@ -110,6 +112,7 @@ fn main() {
             //frame.exit();
         })
         .unwrap();
+    /*
     let image_buffer_content =
         Buffer::mapped_slice_mut(image_buffer.as_mut().unwrap().get_mut().unwrap());
     let img = image::ImageBuffer::<image::Rgba<u8>, _>::from_raw(
@@ -119,4 +122,5 @@ fn main() {
     )
     .unwrap();
     img.save("out.png").unwrap();
+    */
 }

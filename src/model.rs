@@ -8,6 +8,7 @@ use crate::GlslBVH;
 use archery::*;
 use screen_13::prelude::*;
 
+#[derive(Debug)]
 pub struct Model {
     mesh: Mesh,
     // transfomrs
