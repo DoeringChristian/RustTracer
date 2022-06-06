@@ -1,5 +1,5 @@
 /target
 *.obj
 *.mtl
-*.blend
+*.blend*
 perf.data*
