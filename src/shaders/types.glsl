@@ -15,6 +15,10 @@ struct Material{
     vec4 color;
 };
 
+
+
+// internal types.
+
 struct Intersection{
     Vert vert;
     vec3 uvt;
