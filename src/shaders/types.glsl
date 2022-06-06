@@ -28,14 +28,14 @@ struct Intersection{
 };
 
 struct Ray{
-    vec4 pos;
-    vec4 dir;
+    vec3 pos;
+    vec3 dir;
 };
 
 struct RayPayload{
     Ray ray;
-    vec4 color;
-    float refl;
+    vec3 color;
+    vec3 refl;
 };
 
 #define TY_NODE 0

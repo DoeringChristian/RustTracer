@@ -19,6 +19,20 @@ float rand(vec2 seed){
     highp float sn= mod(dt,3.14);
     return fract(sin(sn) * c);
 }
+float rand(vec3 seed){
+    return rand(rand(seed.x) + rand(seed.y) + rand(seed.z));
+}
+
+vec3 rand3(vec3 p)
+{
+	vec3 q = vec3(
+		dot(p, vec3(127.1, 311.7, 74.7)),
+		dot(p, vec3(269.5, 183.3, 246.1)),
+		dot(p, vec3(113.5, 271.9, 124.6))
+		);
+
+	return fract(sin(q) * 43758.5453123);
+}
 
 bool intersects_aabb(Ray ray, vec4 bmin, vec4 bmax){
     vec3 tmin = (bmin.xyz - ray.pos.xyz) / ray.dir.xyz;

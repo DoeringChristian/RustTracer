@@ -114,5 +114,5 @@ void main(){
     }
 
     //imageAtomicAdd(dst, ivec2(x, y), vec4(ray.color)/float(num_paths))
-    imageStore(dst, ivec2(x, y), vec4(ray.color));
+    imageStore(dst, ivec2(x, y), vec4(ray.color, 1.));
 }

@@ -1,6 +1,7 @@
 #ifndef PBR_GLSL
 #define PBR_GLSL
 
+#include "pbr_utils.glsl"
 #include "interface.glsl"
 #include "types.glsl"
 #include "utils.glsl"
@@ -45,8 +46,8 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
     screen_pos /= vec2(float(width), float(height));
     // Offset to center
     screen_pos -= vec2(0.5, 0.5);
-    Ray ray = Ray(vec4(0., 3., 0., 1.), vec4(screen_pos.x, -1., screen_pos.y, 1.));
-    return RayPayload(ray, vec4(0., 0., 0., 0.), 1.);
+    Ray ray = Ray(vec3(0., 3., 0.), vec3(screen_pos.x, -1., screen_pos.y));
+    return RayPayload(ray, vec3(1., 1., 1.), vec3(1., 1., 1.));
 }
 
 //===============================
@@ -55,24 +56,51 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
 // This shader is called on the fragment hit closest to the camera.
 // The main shader code resides here.
 RayPayload closest_hit(Vert hit, RayPayload prev){
-    vec4 ray_dir = vec4(reflect(prev.ray.dir.xyz, hit.normal.xyz), 1.);
-    vec4 ray_pos = vec4(prev.ray.pos.xyz + 0.0000 * ray_dir.xyz, 1.);
-    if (hit.has_mat ==  1){
-        return RayPayload(
-            Ray(
-                ray_pos,
-                ray_dir
-            ), 
-            prev.color + materials[hit.mat_idx].color * prev.refl, 
-            1.);
+    vec3 n = hit.normal.xyz;
+    vec3 v = -prev.ray.dir.xyz;
+    vec3 ray_dir = rand_halfsphere(hit.pos.xyz, n);
+    vec3 ray_pos = prev.ray.pos.xyz;
+
+    float metalness = 0.5;
+    vec3 surface_color;
+    if (hit.has_mat == 1){
+        surface_color = materials[hit.mat_idx].color.rgb;
+    } else{
+        surface_color = vec3(1., 0., 0.);
     }
+
+    float a = 0.5;
+    vec3 F0 = vec3(0.04);
+    F0 = mix(F0, surface_color.rgb, metalness);
+
+    vec3 h = normalize(v + ray_dir.xyz);
+    float cosTheta = dot(h, n);
+
+    float D = DistributionGGX(n, h, a);
+
+    vec3 F = fresnelSchlick(cosTheta, F0);
+    vec3 ks = F;
+    vec3 kd = 1-ks;
+
+    //float k_ibl = (a*a)/2.;
+    float G = GeometrySmith(n, v, ray_dir.xyz, metalness);
+
+    float win = dot(ray_dir, n);
+    float won = dot(prev.ray.dir.xyz, n);
+
+    vec3 specular = ks * D*G*F / (4 * win * won);
+    vec3 brdf = (kd * surface_color/PI + specular) * win;
+
+    float prev_ray_len = length(prev.ray.pos.xyz - hit.pos.xyz);
+    float att = 1/(prev_ray_len * prev_ray_len);
     return RayPayload(
         Ray(
-            ray_pos,
-            ray_dir
-        ), 
-        prev.color + vec4(0.2, 0.2, 0.2, 1.) * prev.refl, 
-        1.);
+            vec3(ray_pos),
+            vec3(ray_dir)
+        ),
+        prev.color * att * brdf,
+        vec3(0.)
+    );
 }
 
 //===============================
@@ -81,7 +109,7 @@ RayPayload closest_hit(Vert hit, RayPayload prev){
 // If there have been no further hits (the ray goes into the void) this shader is called.
 // The color of the output from this shader is the color displayed on screen.
 RayPayload miss(RayPayload prev){
-    return RayPayload(prev.ray, prev.color + prev.refl * vec4(prev.ray.dir.xyz, 1.), 0.);
+    return RayPayload(prev.ray, prev.color * vec3(prev.ray.dir.x, prev.ray.dir.y, prev.ray.dir.z) * 500., vec3(0.));
 }
 
 //===============================

@@ -47,7 +47,7 @@ fn main() {
     let mut world_binding = Some(world.upload(&mut cache));
     println!("test");
 
-    let trace_extent = [800, 600, 2];
+    let trace_extent = [800, 600, 3];
 
     let mut image_buffer = Some(BufferLeaseBinding({
         let buf = cache
