@@ -96,7 +96,7 @@ bool intersects_aabb(Ray ray, vec4 bmin, vec4 bmax){
     float tnear = max(max(t1.x, t1.y), t1.z);
     float tfar = min(min(t2.x, t2.y), t2.z);
 
-    if(tnear > tfar || tfar < 0)
+    if(tnear > tfar || tfar <= 0)
         return false;
     return true;
 }
@@ -166,12 +166,12 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
 //===============================
 // Closest Hit shader:
 //===============================
-RayPayload closest_hit(Vert hit, RayPayload ray){
-    return RayPayload(
+RayPayload closest_hit(Vert hit, RayPayload prev){
+    /*return RayPayload(
         Ray(hit.pos, ray.ray.dir),
         vec4(vec3(length(hit.pos.xyz - vec3(0., 3., 0.)) / 10.), 1.),
         0.
-    );
+    );*/
     /*
     if (hit.has_mat == 1){
         vec4 ray_dir = vec4(reflect(ray.ray.dir.xyz, hit.normal.xyz), 1.);
@@ -187,14 +187,31 @@ RayPayload closest_hit(Vert hit, RayPayload ray){
     }
     return RayPayload(ray.ray, vec4(vec3(length(hit.pos.xyz - ray.ray.pos.xyz)/10.), 1.), 0.0);
     */
-    //return RayPayload(ray.ray, ray.color + vec4(1., 0., 0., 1.) * ray.refl, ray.refl * 0.1);
+    vec4 ray_dir = vec4(reflect(prev.ray.dir.xyz, hit.normal.xyz), 1.);
+    vec4 ray_pos = vec4(prev.ray.pos.xyz + 0.0000 * ray_dir.xyz, 1.);
+    if (hit.has_mat ==  1){
+        return RayPayload(
+            Ray(
+                ray_pos,
+                ray_dir
+            ), 
+            prev.color + materials[hit.mat_idx].color * prev.refl, 
+            1.);
+    }
+    return RayPayload(
+        Ray(
+            ray_pos,
+            ray_dir
+        ), 
+        prev.color + vec4(0.2, 0.2, 0.2, 1.) * prev.refl, 
+        1.);
 }
 
 //===============================
 // Miss shader:
 //===============================
-RayPayload miss(RayPayload ray){
-    return RayPayload(ray.ray, ray.color + ray.refl * vec4(0., 0., 0., 1.), 0.);
+RayPayload miss(RayPayload prev){
+    return RayPayload(prev.ray, prev.color + prev.refl * vec4(prev.ray.dir.xyz, 1.), 0.);
 }
 
 //===============================
@@ -238,7 +255,7 @@ void main(){
                     // left most nodes are at i+1 because the tree is safed in pre order
                     tnode_idx ++;
                 }
-                else if (tnode.ty == TY_LEAF){
+            else if (tnode.ty == TY_LEAF){
                     // We have hit a leaf of the tlas therefore iterate throught the blas accociated with that index.
 
                     //==============================
@@ -252,7 +269,7 @@ void main(){
                             if(bnode.ty == TY_NODE){
                                 bnode_idx++;
                             }
-                            else if(bnode.ty == TY_LEAF){
+                        else if(bnode.ty == TY_LEAF){
                                 Intersection inter = intersection(ray.ray, tnode.right, bnode.right);
                                 if(inter.intersected && inter.uvt.z < closest_inter.uvt.z && anyhit(inter)){
                                     closest_inter = inter;
@@ -267,7 +284,7 @@ void main(){
                                 bnode_idx = bnode.miss;
                             }
                         }
-                        else{
+                    else{
                             // Break if we missed and the bnode is a right most bnode.
                             if(bnode.miss == 0){
                                 break;
@@ -289,7 +306,7 @@ void main(){
                     tnode_idx = tnode.miss; 
                 }
             }
-            else{
+        else{
                 // Break if we missed and the bnode is a right most tnode.
                 if(tnode.miss == 0){
                     break;
@@ -304,7 +321,7 @@ void main(){
         if (closest_inter.intersected == true){
             ray = closest_hit(closest_inter.vert, ray);
         }
-        else{
+    else{
             // There has not been any hit so we return the miss color.
             ray = miss(ray);
             break;
