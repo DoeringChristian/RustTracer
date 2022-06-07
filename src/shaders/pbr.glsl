@@ -20,7 +20,7 @@ Intersection intersection(Ray ray, uint blas_id, uint index_id){
     Vert v1 = tverts[blas_id].verts[tindices[blas_id].indices[index_id + 1]];
     Vert v2 = tverts[blas_id].verts[tindices[blas_id].indices[index_id + 2]];
     vec3 uvt = triangle_uvt(ray, v0.pos.xyz, v1.pos.xyz, v2.pos.xyz);
-    if(uvt.x + uvt.y <= 1 && uvt.x >= 0 && uvt.y >= 0){
+    if(uvt.x + uvt.y <= 1 && uvt.x >= 0 && uvt.y >= 0 && uvt.z > 0){
         vec4 pos_int = mix2(v0.pos, v1.pos, v2.pos, uvt.x, uvt.y);
         vec4 color_int = mix2(v0.color, v1.color, v2.color, uvt.x, uvt.y);
         // generate normals.
@@ -46,7 +46,7 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
     screen_pos /= vec2(float(width), float(height));
     // Offset to center
     screen_pos -= vec2(0.5, 0.5);
-    Ray ray = Ray(vec3(0., 3., 0.), vec3(screen_pos.x, -1., screen_pos.y));
+    Ray ray = Ray(vec3(0., -3., 0.), vec3(screen_pos.x, 1., screen_pos.y));
     return RayPayload(ray, vec3(1., 1., 1.), vec3(1., 1., 1.));
 }
 
@@ -56,49 +56,52 @@ RayPayload ray_gen(vec2 screen_pos, uint ray_num){
 // This shader is called on the fragment hit closest to the camera.
 // The main shader code resides here.
 RayPayload closest_hit(Vert hit, RayPayload prev){
-    vec3 n = hit.normal.xyz;
-    vec3 v = -prev.ray.dir.xyz;
-    vec3 ray_dir = rand_halfsphere(hit.pos.xyz, n);
-    vec3 ray_pos = prev.ray.pos.xyz;
 
-    float metalness = 0.5;
-    vec3 surface_color;
+    float metallic = 0.9;
+    float roughness = 0.1;
+
+    vec3 n = hit.normal.xyz;
+    vec3 v = normalize(-prev.ray.dir.xyz);
+    vec3 l = rand_halfsphere(hit.pos.xyz, n);
+    vec3 h = normalize(v + l);
+    float prev_len = length(prev.ray.pos.xyz - hit.pos.xyz);
+    float vatt = 1./(prev_len * prev_len); // Attenuation to the view point
+
+    vec3 ray_dir = l;
+    vec3 ray_pos = hit.pos.xyz + l * 0.01;
+
+    vec3 albedo;
     if (hit.has_mat == 1){
-        surface_color = materials[hit.mat_idx].color.rgb;
+        albedo = materials[hit.mat_idx].color.rgb;
     } else{
-        surface_color = vec3(1., 0., 0.);
+        albedo = vec3(0., 1., 0.);
     }
 
-    float a = 0.5;
     vec3 F0 = vec3(0.04);
-    F0 = mix(F0, surface_color.rgb, metalness);
+    F0 = mix(F0, albedo, metallic);
 
-    vec3 h = normalize(v + ray_dir.xyz);
-    float cosTheta = dot(h, n);
+    float D = DistributionGGX(n, h, roughness);
 
-    float D = DistributionGGX(n, h, a);
+    vec3 F = fresnelSchlick(clamp(dot(h, v), 0., 1.), F0);
 
-    vec3 F = fresnelSchlick(cosTheta, F0);
+    float G = GeometrySmith(n, v, l, roughness);
+
+    float win = dot(l, n);
+    float won = dot(v, n);
+
     vec3 ks = F;
-    vec3 kd = 1-ks;
+    vec3 kd = vec3(1.)-ks;
+    kd *= 1.0 - metallic;
 
-    //float k_ibl = (a*a)/2.;
-    float G = GeometrySmith(n, v, ray_dir.xyz, metalness);
+    vec3 specular = D*G*F / (4. * max(win, 0.) * max(won, 0.) + 0.0001);
+    vec3 brdf = (kd * albedo/PI + specular);
 
-    float win = dot(ray_dir, n);
-    float won = dot(prev.ray.dir.xyz, n);
-
-    vec3 specular = ks * D*G*F / (4 * win * won);
-    vec3 brdf = (kd * surface_color/PI + specular) * win;
-
-    float prev_ray_len = length(prev.ray.pos.xyz - hit.pos.xyz);
-    float att = 1/(prev_ray_len * prev_ray_len);
     return RayPayload(
         Ray(
             vec3(ray_pos),
             vec3(ray_dir)
         ),
-        prev.color * att * brdf,
+        prev.color * vatt * brdf * win,
         vec3(0.)
     );
 }
@@ -109,7 +112,16 @@ RayPayload closest_hit(Vert hit, RayPayload prev){
 // If there have been no further hits (the ray goes into the void) this shader is called.
 // The color of the output from this shader is the color displayed on screen.
 RayPayload miss(RayPayload prev){
-    return RayPayload(prev.ray, prev.color * vec3(prev.ray.dir.x, prev.ray.dir.y, prev.ray.dir.z) * 500., vec3(0.));
+    vec3 light_color;
+    if (dot(normalize(prev.ray.dir), vec3(1., 0., 0.)) > 0.1){
+        light_color = vec3(1.);
+    } else{
+        light_color = vec3(0.);
+    }
+    return RayPayload(
+        prev.ray, 
+        prev.color * light_color * 100., 
+        vec3(0.));
 }
 
 //===============================
